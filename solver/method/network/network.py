@@ -75,7 +75,6 @@ class Network:
 
         with open(file, 'r') as f:
 
-            nid = 0 # current node ID
             aid = 0 # current arc ID
 
             # Read the file line-by-line
@@ -100,13 +99,19 @@ class Network:
                     self.def_limit = int(ls[6])
                     self.att_limit = int(ls[7])
 
+                    # Initialize all nodes as transshipment (in case the NETGEN
+                    # file lists only nonzero supply values)
+                    self.nodes = [_Node(i, 0.0) for i in range(int(ls[2]))]
+
                 # Node
                 elif line[0] == 'n':
                     # n ID supply
 
+                    # All nodes have already been defined, so update existing
+                    # supply values
+
                     ls = line.split()
-                    self.nodes.append(_Node(nid, float(ls[2])))
-                    nid += 1
+                    self.nodes[int(ls[1])-1].supply = float(ls[2])
 
                 # Arc
                 elif line[0] == 'a':
@@ -136,12 +141,24 @@ class Network:
                     ls = line.split()
                     self.def_arcs.append(self.arcs[int(ls[1])-1])
 
+                    # All defensible arcs are assumed to be destructible
+                    self.att_arcs.append(self.arcs[int(ls[1])-1])
+
                 # Destructible arc
                 elif line[0] == 'r':
                     # r arc
 
                     ls = line.split()
                     self.att_arcs.append(self.arcs[int(ls[1])-1])
+
+            # If no defensible or destructible arcs were listed, we assume
+            # that all arcs are available
+
+            if len(self.def_arcs) == 0:
+                self.def_arcs[:] = self.arcs[:]
+
+            if len(self.att_arcs) == 0:
+                self.att_arcs[:] = self.def_arcs[:]
 
 #==============================================================================
 class _Node:
