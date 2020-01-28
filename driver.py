@@ -4,6 +4,10 @@ Drives the computational trial processing by reading a list of problem file
 locations and calling the main solver driver for each.
 """
 
+# Note: The current version of this program is equipped only to handle
+# networks with parent arcs, since parent nodes require some restructuring when
+# the network object is created.
+
 import solver
 import solver.upper_cp as ucp
 import solver.method.milp_cp as milpcp
