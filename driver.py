@@ -9,3 +9,6 @@
 # Cutting plane MILP solver.
 # Cutting plane LP solver.
 # Duality LP solver.
+
+# Get a bit more of a placeholder skeleton going and then develop each solver
+# on its own branch.
