@@ -59,20 +59,66 @@ class LPCuttingPlane:
         The relaxed master problem is the attacker's maximization MILP which
         includes an expanding set of constraints based on previously-calculated
         lower level solutions.
+
+        The MILP is initialized with no constraints on the objective value. A
+        constraint is added after each solution of the lower-level program.
         """
 
         # Initialize object
-        self.UpperModel = cplex.Cplex()###############################################
+        self.UpperModel = cplex.Cplex()
 
-        ### Don't bother defining a stored constraint set.
-        ### Generate the new constraints as needed.
-        ### Each one just requires the objective and the nonzero flow vector
-        ### for the lower-level solution. The new linear constraint is:
-        ### rho + (for all nonzero flows, -M * psi) <= obj
-        ### Unless we find an infeasible lower-level, in which case we can
-        ### immediately output an infinite objective and cut the current main
-        ### loop. This would appear as just a constraint with a huge bound on
-        ### rho that does not depend on the flows.
+        # Silence CPLEX output streams
+        self.UpperModel.set_log_stream(None)
+        self.UpperModel.set_results_stream(None)
+        self.UpperModel.set_error_stream(None)
+        self.UpperModel.set_warning_stream(None)
+
+        # Set as maximization
+        self.UpperModel.objective.set_sense(
+                self.UpperModel.objective.sense.maximize)
+
+        # Define a list of variable names
+        self.obj_var = "ob"
+        self.att_vars = ["at("+str(a.id)+")" for a in self.Net.att_arcs]
+
+        # Add objective bound variable to Cplex object
+        self.UpperModel.variables.add(obj=[1.0], names=[self.obj_var],
+                                      lb=[-cplex.infinity],
+                                      ub=[cplex.infinity])
+
+        # Add binary attack decision variables to Cplex object
+        self.UpperModel.variables.add(names=self.att_vars,
+                                      types="B"*len(self.att_vars))
+
+        # Define a list of attack variable constraint names (upper bounds that
+        # can change depending on the defensive decisions)
+        self.att_con = ["df("+str(a.id)+")" for a in self.Net.att_arcs]
+
+        # Define sense string for attack constraints (all <=)
+        att_sense = "L"*len(self.Net.att_arcs)
+
+        # Define attack constraint righthand sides (all 1)
+        att_rhs = [1 for a in self.Net.att_arcs]
+
+        # Define attack constraints for each arc (initially just bounds)
+        att_expr = [[[v], [1]] for v in self.att_vars]
+
+        # Define attack constraints to limit the total number of attacks
+        att_lim_expr = [[[v for v in self.att_vars],
+                         [1 for v in self.att_vars]]]
+
+        # Add attack constraints to Cplex object
+        self.UpperModel.linear_constraints.add(names=self.att_con,
+                                               lin_expr=att_expr,
+                                               senses=att_sense, rhs=att_rhs)
+        self.UpperModel.linear_constraints.add(names=["ab"],
+                                               lin_expr=att_lim_expr,
+                                               senses=["L"],
+                                               rhs=[self.Net.att_limit])
+
+        # Initialize an empty side constraint name list (which will be added to
+        # as lower-level solutions generate objective bounds)
+        self.side_con = []
 
     #--------------------------------------------------------------------------
     def _lower_cplex_setup(self):
@@ -81,6 +127,10 @@ class LPCuttingPlane:
         The interdependent network problem is the defender's minimization LP
         in which they respond to the attacker's destruction to optimize the
         resulting network.
+
+        The LP is initialized with all arcs intact. The constraints are
+        updated before each solve to reflect the damage caused by the
+        attacker's decisions.
         """
 
         # Initialize object
@@ -209,11 +259,66 @@ class LPCuttingPlane:
             iterations -- Number of iterations of main cutting plane loop.
         """
 
+        ### Break loop if the lower level is infeasible.
+
         ### Placeholder output
         return (0.0, [False for i in range(len(self.Net.arcs))], 0, 0)
 
     #--------------------------------------------------------------------------
-    def _lp_solve(self, destroy, cplex_epsilon=0.001):
+    def _upper_solve(self, defend=[], cplex_epsilon=0.001):
+        """Solves the upper-level relaxed master MILP.
+
+        Uses the upper-level Cplex object to solve the MILP defined by the
+        current defense vector. This process involves cleaning up the model,
+        modifying the constraints, calling the CPLEX solver, and then
+        interpreting and returning the results.
+
+        Accepts the following optional keyword arguments:
+            defend -- Vector of defended arcs, as a boolean list. Defaults to
+                an empty list, in which case no constraints are updated.
+            cplex_epsilon -- Epsilon value for CPLEX solver's cleanup method.
+                Values generated by the solver falling below this absolute
+                value are deleted between solves. Defaults to 0.001.
+
+        Returns a tuple containing the following elements:
+            objective -- Objective value upper-level program.
+            destroy -- Vector of arc destruction decisions, as a boolean list.
+        """
+
+        # Clean up the model
+        self.UpperModel.cleanup(cplex_epsilon)
+
+        # Update constraints based on arc defense vector
+        if len(defend) == len(self.Net.def_arcs):
+            new_rhs = [1 for a in self.Net.def_arcs]
+            for i in range(len(new_rhs)):
+                if defend[i] == True:
+                    new_rhs[i] = 0
+            #self.UpperModel.linear_constraints.set_rhs([(self.flow_att[i],
+            #    new_rhs[i]) for i in range(len(self.flow_att))])
+
+        # Solve the MILP
+        self.UpperModel.solve()
+
+        # Get the objective value
+        obj = self.UpperModel.solution.get_objective_value()
+
+        # Set unbounded objective value to big-M (CPLEX returns an objective
+        # of 0.0 for unbounded primal problems)
+        if ((obj == 0.0) and
+            (self.UpperModel.solution.is_primal_feasible() == True)):
+            obj = self.big_m
+
+        # Get the solution vector
+        destroy = [False for a in self.Net.att_arcs]
+        for i in range(len(self.Net.att_arcs)):
+            if self.UpperModel.solution.get_values(self.att_vars[i]) == 1:
+                destroy[i] = True
+
+        return (obj, destroy)
+
+    #--------------------------------------------------------------------------
+    def _lower_solve(self, destroy=[], cplex_epsilon=0.001):
         """Solves the lower-level interdependent network flows LP.
 
         Uses the lower-level Cplex object to solve the LP defined by the
@@ -221,10 +326,9 @@ class LPCuttingPlane:
         modifying the constraints, calling the CPLEX solver, and then
         interpreting and returning the results.
 
-        Requires the following positional arguments:
-            destroy -- Vector of destroyed arcs, as a boolean list.
-
         Accepts the following optional keyword arguments:
+            destroy -- Vector of destroyed arcs, as a boolean list. Defaults to
+                an empty list, in which case no constraints are updated.
             cplex_epsilon -- Epsilon value for CPLEX solver's cleanup method.
                 Values generated by the solver falling below this absolute
                 value are deleted between solves. Defaults to 0.001.
@@ -241,12 +345,13 @@ class LPCuttingPlane:
         self.LowerModel.cleanup(cplex_epsilon)
 
         # Update constraints based on arc destruction vector
-        new_rhs = [a.bound for a in self.Net.att_arcs]
-        for i in range(len(new_rhs)):
-            if destroy[i] == True:
-                new_rhs[i] = 0
-        self.LowerModel.linear_constraints.set_rhs([(self.flow_att[i],
-            new_rhs[i]) for i in range(len(self.flow_att))])
+        if len(destroy) == len(self.Net.att_arcs):
+            new_rhs = [a.bound for a in self.Net.att_arcs]
+            for i in range(len(new_rhs)):
+                if destroy[i] == True:
+                    new_rhs[i] = 0
+            self.LowerModel.linear_constraints.set_rhs([(self.flow_att[i],
+                new_rhs[i]) for i in range(len(self.flow_att))])
 
         # Solve the LP
         self.LowerModel.solve()
@@ -282,7 +387,15 @@ class LPCuttingPlane:
 import network.network as net
 TestNet = net.Network("../../problems/smallnet.min")
 TestSolver = LPCuttingPlane(TestNet)
-print(TestSolver._lp_solve([True, False, True, True, False, False, True, False,
-                            False]))
-TestSolver.LowerModel.write("test_program.lp")
+print(TestSolver._lower_solve())
+print(TestSolver._lower_solve(destroy=[True, False, True, True, False, False,
+                                       True, False, False]))
+print(TestSolver._upper_solve())
+print(TestSolver.UpperModel.solution.is_primal_feasible())
+
+#print(TestSolver.solve([]))
+
+TestSolver.LowerModel.write("ll_program.lp")
+TestSolver.UpperModel.write("ul_program.lp")
+
 TestSolver.end()
