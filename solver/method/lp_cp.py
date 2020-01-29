@@ -232,9 +232,18 @@ class LPCuttingPlane:
     def solve(self, defend, cutoff=100, gap=0.01, cplex_epsilon=0.001):
         """Bilevel subproblem solution method.
 
+        The main cutting plane loop consists of alternating between solving the
+        upper-level relaxed master problem and solving the lower-level response
+        problem. The lower-level problem is adjusted to reflect the upper-level
+        attack decisions, and its objective value represents the objective
+        value associated with that attack vector, which then becomes a
+        constraint in the relaxed master problem.
+
         The main loop of the cutting plane algorithm proceeds until either
         reaching an iteration cutoff or achieving a sufficiently small
-        optimality gap, both of which can be adjusted.
+        optimality gap, both of which can be adjusted. We can also terminate
+        the loop early if the lower-level response is infeasible, in which case
+        the upper-level objective is infinite.
 
         Requires the following positional arguments:
             defend -- Vector of defended arcs, as a boolean list.
@@ -259,10 +268,42 @@ class LPCuttingPlane:
             iterations -- Number of iterations of main cutting plane loop.
         """
 
-        ### Break loop if the lower level is infeasible.
+        # Set local variables
+        obj_ub = -self.big_m # objective upper bound (upper-level problem)
+        obj_lb = self.big_m # objective lower bound (lower-level problem)
+        iteration= 1 # current iteration number
+        status = 0 # exit code
 
-        ### Placeholder output
-        return (0.0, [False for i in range(len(self.Net.arcs))], 0, 0)
+        # Solve the upper-level problem once for the given defense vector
+        (obj_ub, destroy) = self._upper_solve(defend=defend,
+                                              cplex_epsilon=cplex_epsilon)
+
+        # Find the lower-level response for the given attack vector
+        (obj_lb, nonzero, feasible) = self._lower_solve(destroy=destroy,
+                                                   cplex_epsilon=cplex_epsilon)
+
+        obj_gap = abs(obj_ub-obj_lb) # current optimality gap
+
+        #----------------------------------------------------------------------
+        # Main cutting plane loop begin
+
+        while (iteration < cutoff) and (obj_gap > gap) and (feasible == True):
+
+            iteration += 1
+
+            ### To do in loop:
+            ### Add a constraint to the relaxed master problem (subroutine)
+            ### Re-solve the upper level problem.
+            ### Re-solve the lower level problem.
+            ###     If it's infeasible, we can break.
+            ### Recalculate the optimality gap.
+
+            break ### Breaking immediately for testing purposes
+
+        # Main cutting plane loop end
+        #----------------------------------------------------------------------
+
+        return ((obj_ub+obj_lb)/2, destroy, status, iteration)
 
     #--------------------------------------------------------------------------
     def _upper_solve(self, defend=[], cplex_epsilon=0.001):
@@ -387,13 +428,13 @@ class LPCuttingPlane:
 import network.network as net
 TestNet = net.Network("../../problems/smallnet.min")
 TestSolver = LPCuttingPlane(TestNet)
-print(TestSolver._lower_solve())
-print(TestSolver._lower_solve(destroy=[True, False, True, True, False, False,
-                                       True, False, False]))
-print(TestSolver._upper_solve())
-print(TestSolver.UpperModel.solution.is_primal_feasible())
+#print(TestSolver._lower_solve())
+#print(TestSolver._lower_solve(destroy=[True, False, True, True, False, False,
+#                                       True, False, False]))
+#print(TestSolver._upper_solve())
+#print(TestSolver.UpperModel.solution.is_primal_feasible())
 
-#print(TestSolver.solve([]))
+print(TestSolver.solve([]))
 
 TestSolver.LowerModel.write("ll_program.lp")
 TestSolver.UpperModel.write("ul_program.lp")
