@@ -6,13 +6,13 @@ A collection of programs used to generate computational results for a research p
 
 This module includes a variety of submodules for running various aspects of the computational trial evaluation process. They are organized as follows:
 
-* `driver.py`: Main driver. Processes each computational trial one-by-one to apply all available solution methods and record the results.
-* `solver.py`: Solution algorithm driver. Used to call each solution algorithm in turn and store its results.
 * `solver/`
-  * `upper_cp.py`: Driver for the upper-level cutting plane algorithm.
   * `method/`
-    * `lp_cp.py`: Cutting plane algorithm for the lower-level bilevel program with a linear lower level.
-    * `lp_dual.py`: Duality algorithm for the lower-level bilevel program with a mixed-integer lower level.
-    * `milp_cp.py`: Cutting plane algorithm for the lower-level bilevel program with a mixed-integer lower level.
     * `network/`
-      * `network.py`: Network object module for use in storing the network defined by the NETGEN input file.
+      * `network.py`: Network object module for use in storing the network defined by the NETGEN input file as well as additional problem info.
+    * `lp_cp.py`: Cutting plane algorithm for the lower-level bilevel program with the linear interdependence model as its lower level.
+    * `lp_dual.py`: Duality algorithm for the lower-level bilevel program with the linear interdependence model as its lower level.
+    * `milp_cp.py`: Cutting plane algorithm for the lower-level bilevel program with the binary interdependence model as its lower level.
+  * `upper_cp.py`: Driver for the upper-level cutting plane algorithm.
+* `driver.py`: Main driver. Processes each computational trial file one-by-one to apply all available solution methods and record the results.
+* `solver.py`: Solution algorithm driver. Used to call each solution algorithm in turn and store its results.
