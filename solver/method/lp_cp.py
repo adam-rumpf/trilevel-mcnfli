@@ -42,7 +42,7 @@ class LPCuttingPlane:
         """
 
         self.Net = net_in # set reference to network object
-        self.big_m = big_m
+        self.big_m = big_m # penalty value for use in relaxed master problem
 
         # Initialize attack vector and related lists
         self.attack = [False for a in self.Net.att_arcs]
@@ -61,7 +61,18 @@ class LPCuttingPlane:
         lower level solutions.
         """
 
-        pass
+        # Initialize object
+        self.UpperModel = cplex.Cplex()###############################################
+
+        ### Don't bother defining a stored constraint set.
+        ### Generate the new constraints as needed.
+        ### Each one just requires the objective and the nonzero flow vector
+        ### for the lower-level solution. The new linear constraint is:
+        ### rho + (for all nonzero flows, -M * psi) <= obj
+        ### Unless we find an infeasible lower-level, in which case we can
+        ### immediately output an infinite objective and cut the current main
+        ### loop. This would appear as just a constraint with a huge bound on
+        ### rho that does not depend on the flows.
 
     #--------------------------------------------------------------------------
     def _lower_cplex_setup(self):
@@ -76,10 +87,10 @@ class LPCuttingPlane:
         self.LowerModel = cplex.Cplex()
 
         # Silence CPLEX output streams
-        ###self.LowerModel.set_log_stream(None)
-        ###self.LowerModel.set_results_stream(None)
-        ###self.LowerModel.set_error_stream(None)
-        ###self.LowerModel.set_warning_stream(None)
+        self.LowerModel.set_log_stream(None)
+        self.LowerModel.set_results_stream(None)
+        self.LowerModel.set_error_stream(None)
+        self.LowerModel.set_warning_stream(None)
 
         # Set as minimization
         self.LowerModel.objective.set_sense(
@@ -274,3 +285,4 @@ TestSolver = LPCuttingPlane(TestNet)
 print(TestSolver._lp_solve([True, False, True, True, False, False, True, False,
                             False]))
 TestSolver.LowerModel.write("test_program.lp")
+TestSolver.end()
