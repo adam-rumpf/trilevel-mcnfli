@@ -10,9 +10,9 @@ features are written under the assumption that the input file is being read
 line-by-line.
 """
 
-# To do:
-#   Include support for the conversions requires to have nodes as parents (see
-#   C++ script; it just requires introducing a few more constraints).
+### To do (marked with "###" in comments below):
+###   Include support for the conversions requires to have nodes as parents
+###   (see C++ script; it just requires introducing a few more constraints).
 
 #==============================================================================
 class Network:
@@ -35,7 +35,8 @@ class Network:
         file. The constructor initializes its internal attributes and then
         calls a private method for reading the contents of the NETGEN file.
 
-        We assume that the problem is always a minimization.
+        We assume that the problem is always a minimization and so ignore the
+        sense listed in the NETGEN file.
 
         Requires the following positional arguments:
             file -- Complete file path for the NETGEN file containing the
