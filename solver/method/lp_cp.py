@@ -68,10 +68,40 @@ class LPCuttingPlane:
         self.UpperModel = cplex.Cplex()
 
         # Set parameters
-        self.UpperModel.parameters.mip.tolerances.integrality = 1.0e-8
-        print(self.UpperModel.parameters.mip.tolerances.mipgap)
-        self.UpperModel.parameters.mip.tolerances.mipgap = 0.01
-        print(self.UpperModel.parameters.mip.tolerances.mipgap)
+        ###self.UpperModel.parameters.mip.tolerances.integrality = 1.0e-8
+        ###self.UpperModel.parameters.mip.tolerances.mipgap = 0.01
+
+        ##############
+        # Problem: The current big-M formulation can allow the attacker to
+        # select values very slightly above 0.0 for their attack decisions.
+        # This allows them to enjoy the benefits of the -M penalty costs in the
+        # constraints, while acting as though they have not actually attacked
+        # that arc.
+        # See about using indicator constraints. For each attack variable, also
+        # define a corresponding penalty variable, which is continuous on
+        # [0, M]. In the relaxed master problem's constraints, replace the
+        # attack variable with this penalty variable. Increasing the penalty
+        # variable has the effect of eliminating the bound, so normally the
+        # program will want to make them as small as possible.
+        # Then add an indicator constraint so that, when the attack variable
+        # is 0, a bound of "var <= 0" applies to the penalty variable, which
+        # prevents us from taking advantage of it when the attack variable is
+        # 0 (or close enough to it).
+        #
+        # self.UpperModel.indicator_constraints.add(...)
+        #
+        # The upper level of the trilevel cutting plane algorithm can be made
+        # to work exclusively with indicator constraints.
+        #
+        ### To do:
+        # Add a penalty variable for each attack variable, continuous on [0,M].
+        # Add an indicator constraint for each attack/penalty pair that forces
+        # the penalty to be <= 0 whenever the attack is 0.
+        # When adding a constraint, use the penalty variables in place of the
+        # attack variables.
+        # Consider how this should be implemented into the other MILPs of this
+        # project (duality MILP, MILP model as cutting plane lower level,
+        # upper trilevel MILP)
 
         # Silence CPLEX output streams
         self.UpperModel.set_log_stream(None)
