@@ -196,20 +196,26 @@ class UpperLevel:
         obj_ub = -cplex.infinity # objective upper bound (lower-level problem)
         obj_lb = cplex.infinity # objective lower bound (upper-level problem)
         iteration= 1 # current iteration number
+        upper_time = 0 # total time spent solving the upper-level models
+        lower_time = 0 # total time spent solving the lower-level models
 
         ###
         print("\nInitializing P1-3' cutting plane search.\n")
         print("="*30+" Iteration 0 "+"="*30)
 
         # Solve the upper-level problem for an initial solution
+        timer = time.time()
         (obj_lb, defend) = self._upper_solve(cplex_epsilon=cplex_epsilon)
+        upper_time += time.time() - timer
 
         ###
         print("\nrho3 = "+str(obj_lb))
 
         # Find the lower-level response for the given attack vector
+        timer = time.time()
         (obj_ub, destroy, status, lower_iterations) = self.lower_solve(defend,
                cutoff=lower_cutoff, gap=lower_gap, cplex_epsilon=cplex_epsilon)
+        lower_time += time.time() - timer
 
         ###
         print("\n"+"="*60)
@@ -234,14 +240,29 @@ class UpperLevel:
             self._add_constraint(obj_ub, destroy)
 
             # Re-solve the relaxed master problem
+            timer = time.time()
             (obj_lb, defend) = self._upper_solve(cplex_epsilon=cplex_epsilon)
+            upper_time += time.time() - timer
 
             ###
             print("rho3 = "+str(obj_lb))
 
             # Re-solve the lower-level response
-            ###(obj_lb, nonzero, feasible) = self._lower_solve(destroy=destroy,
-            ###                                       cplex_epsilon=cplex_epsilon)
+            timer = time.time()
+            (obj_ub, destroy, status, li) = self.lower_solve(defend,
+               cutoff=lower_cutoff, gap=lower_gap, cplex_epsilon=cplex_epsilon)
+            lower_time += time.time() - timer
+            lower_iterations += li
+
+            ###
+            print("\n"+"="*60)
+            print("rho2 = "+str(obj_ub))
+
+            # Recalculate the optimality gap
+            obj_gap = abs(obj_ub - obj_lb)
+
+            ###
+            print("Optimality gap = "+str(obj_gap))
 
             break###
 
@@ -258,7 +279,8 @@ class UpperLevel:
         ### (unless its method is type 3)
 
         ### Placeholder output
-        return ((obj_ub+obj_lb)/2, defend, destroy, (0.0, 0.0), (0, 0))
+        return ((obj_ub+obj_lb)/2, defend, destroy, (upper_time, lower_time),
+                (iteration, lower_iterations))
 
     #--------------------------------------------------------------------------
     def _upper_solve(self, cplex_epsilon=0.001):
@@ -334,11 +356,8 @@ class UpperLevel:
         """
 
         # Call the appropriate lower-level solver and return its results
-        if self.method in {1, 2}:
-            return self.LowerLevel.solve(defend, cutoff=cutoff, gap=gap,
-                                         cplex_epsilon=cplex_epsilon)
-        elif self.method == 3:
-            return self.LowerLevel.solve(defend) ### Update depending on duality arguments
+        return self.LowerLevel.solve(defend, cutoff=cutoff, gap=gap,
+                                     cplex_epsilon=cplex_epsilon)
 
     #--------------------------------------------------------------------------
     def _add_constraint(self, objective, arcs):
@@ -392,7 +411,7 @@ if __name__ == "__main__":
     TestNet = net.Network("../problems/smallnet.min")
     TestSolver = UpperLevel(TestNet, 2)
 
-    print(TestSolver.solve())
+    print(TestSolver.solve(cutoff=10, lower_cutoff=10))
     #print(TestSolver.lower_solve([False, False, False, False, True, False,
     #                              False], cutoff=20))
 
