@@ -1,7 +1,7 @@
 """Cutting plane solution algorithm for the lower-level bilevel MILP or LP.
 
-Includes a MILPCuttingPLane class which applies the cutting plane solution
-method given a protection vector. Returns the objective value and attack vector
+Includes a LLCuttingPLane class which applies the cutting plane solution method
+given a protection vector. Returns the objective value and attack vector
 obtained from the lower-level bilevel maximization.
 
 The class can be used to model either the bilevel interdependency MILP or its
@@ -15,7 +15,7 @@ binary interdependence model.
 import cplex
 
 #==============================================================================
-class MILPCuttingPlane:
+class LLCuttingPlane:
     """Class to implement the cutting plane method for the lower LP or MILP.
 
     This class also includes a local Cplex object to represent the lower-level
@@ -547,7 +547,7 @@ class MILPCuttingPlane:
     def end(self):
         """Closes all internal Cplex models.
 
-        This should be called before the MILPCuttingPlane object is discarded.
+        This should be called before the LLCuttingPlane object is discarded.
         """
 
         self.LowerModel.end()
@@ -559,7 +559,7 @@ class MILPCuttingPlane:
 if __name__ == "__main__":
     import network.network as net
     TestNet = net.Network("../../problems/smallnet.min")
-    TestSolver = MILPCuttingPlane(TestNet, 2)
+    TestSolver = LLCuttingPlane(TestNet, 2)
     #print(TestSolver._lower_solve())
     #print(TestSolver._lower_solve(destroy=[True, False, True, True, False,
     #                                       False, True, False, False]))

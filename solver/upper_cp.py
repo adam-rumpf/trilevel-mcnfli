@@ -66,9 +66,9 @@ class UpperLevel:
 
         # Initialize the chosen type of lower-level solver
         if self.method == 1:
-            self.LowerLevel = milpcp.MILPCuttingPlane(self.Net, 1)
+            self.LowerLevel = milpcp.LLCuttingPlane(self.Net, 1)
         elif self.method == 2:
-            self.LowerLevel = milpcp.MILPCuttingPlane(self.Net, 2)
+            self.LowerLevel = milpcp.LLCuttingPlane(self.Net, 2)
         elif self.method == 3:
             self.LowerLevel = lpd.LPDuality(self.Net)
 
