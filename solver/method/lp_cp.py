@@ -90,18 +90,17 @@ class LPCuttingPlane:
         self.UpperModel.variables.add(names=self.att_vars,
                                       types="B"*len(self.att_vars))
 
-        # Define a list of attack variable constraint names (upper bounds that
-        # can change depending on the defensive decisions)
-        self.att_con = ["df("+str(a.id)+")" for a in self.Net.att_arcs]
+        # Define a list of attack variable constraint names for defensible arcs
+        self.att_con = ["df("+str(a.id)+")" for a in self.Net.def_arcs]
 
         # Define sense string for attack constraints (all <=)
-        att_sense = "L"*len(self.Net.att_arcs)
+        att_sense = "L"*len(self.Net.def_arcs)
 
         # Define attack constraint righthand sides (all 1)
-        att_rhs = [1 for a in self.Net.att_arcs]
+        att_rhs = [1 for a in self.Net.def_arcs]
 
         # Define attack constraints for each arc (initially just bounds)
-        att_expr = [[[v], [1]] for v in self.att_vars]
+        att_expr = [[["at("+str(a.id)+")"], [1]] for a in self.Net.def_arcs]
 
         # Define attack constraints to limit the total number of attacks
         att_lim_expr = [[[v for v in self.att_vars],
@@ -335,8 +334,8 @@ class LPCuttingPlane:
             for i in range(len(new_rhs)):
                 if defend[i] == True:
                     new_rhs[i] = 0
-            #self.UpperModel.linear_constraints.set_rhs([(self.flow_att[i],
-            #    new_rhs[i]) for i in range(len(self.flow_att))])
+            self.UpperModel.linear_constraints.set_rhs([(self.att_con[i],
+                           new_rhs[i]) for i in range(len(self.Net.def_arcs))])
 
         # Solve the MILP
         self.UpperModel.solve()
@@ -417,26 +416,29 @@ class LPCuttingPlane:
     def end(self):
         """Closes all internal Cplex models.
 
-        This should be called before the lower-level solver is discarded.
+        This should be called before the LPCuttingPlane object is discarded.
         """
 
         self.LowerModel.end()
         self.UpperModel.end()
 
 ###############################################################################
-### For testing
-import network.network as net
-TestNet = net.Network("../../problems/smallnet.min")
-TestSolver = LPCuttingPlane(TestNet)
-#print(TestSolver._lower_solve())
-#print(TestSolver._lower_solve(destroy=[True, False, True, True, False, False,
-#                                       True, False, False]))
-#print(TestSolver._upper_solve())
-#print(TestSolver.UpperModel.solution.is_primal_feasible())
+### For testing (delete later)
 
-print(TestSolver.solve([]))
+if __name__ == "__main__":
+    import network.network as net
+    TestNet = net.Network("../../problems/smallnet.min")
+    TestSolver = LPCuttingPlane(TestNet)
+    #print(TestSolver._lower_solve())
+    #print(TestSolver._lower_solve(destroy=[True, False, True, True, False,
+    #                                       False, True, False, False]))
+    print(TestSolver._upper_solve(defend=[False, True, False, False, True,
+                                          False, True]))
+    #print(TestSolver.UpperModel.solution.is_primal_feasible())
 
-TestSolver.LowerModel.write("ll_program.lp")
-TestSolver.UpperModel.write("ul_program.lp")
+    print(TestSolver.solve([]))
 
-TestSolver.end()
+    TestSolver.LowerModel.write("ll_program.lp")
+    TestSolver.UpperModel.write("ul_program.lp")
+
+    TestSolver.end()
