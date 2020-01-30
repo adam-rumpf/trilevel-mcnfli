@@ -72,7 +72,7 @@ class UpperLevel:
         elif self.method == 2:
             self.LowerLevel = lpcp.LPCuttingPlane(self.Net)
         elif self.method == 3:
-            self.LowerLevel = lpd.LPDuality(self.Net)
+            self.LowerLevel = lpd.LLDuality(self.Net)
 
         # Initialize Cplex object
         self._cplex_setup()

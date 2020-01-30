@@ -12,7 +12,7 @@ relaxation of the binary interdependence model.
 ### Currently consits entirely of placeholders.
 
 #==============================================================================
-class LPDuality:
+class LLDuality:
     """Class to implement the duality method for the LP lower model.
 
     This class also includes a local Cplex object to represent the lower-level
@@ -530,7 +530,7 @@ class LPDuality:
 if __name__ == "__main__":
     import network.network as net
     TestNet = net.Network("../../problems/smallnet.min")
-    TestSolver = LPDuality(TestNet)
+    TestSolver = LLDuality(TestNet)
 
     print(TestSolver.solve([False, False, False, False, True, False, False],
                            cutoff=20))
