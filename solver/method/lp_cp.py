@@ -352,8 +352,8 @@ class LPCuttingPlane:
             ### Include the potential to break here if LL is infeasible.
             if feasible == False:
                 print("Response problem infeasible.")
-                obj_ub = cplex.infinity
-                obj_lb = cplex.infinity
+                obj_ub = self.big_m
+                obj_lb = self.big_m
                 status = 1
                 break
 
@@ -506,7 +506,7 @@ class LPCuttingPlane:
         for i in range(len(self.Net.att_arcs)):
             if arcs[self.Net.att_arcs[i].id] == True:
                 new_con_vars.append(self.pen_vars[i])
-                new_con_coef.append(-self.big_m)
+                new_con_coef.append(-1)
 
         # Add constraints to Cplex object
         self.UpperModel.linear_constraints.add(names=[

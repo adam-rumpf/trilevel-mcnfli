@@ -220,19 +220,30 @@ class UpperLevel:
         ###
         print("Optimality gap = "+str(obj_gap))
 
-
-
-
-
-
-
-
         #----------------------------------------------------------------------
         # Main cutting plane loop begin
 
         while (iteration < cutoff) and (obj_gap > gap):
 
             iteration += 1
+
+            ###
+            print("="*30+" Iteration "+str(iteration-1)+" "+"="*30)
+
+            # Add a constraint based on the nonzero flow vector
+            self._add_constraint(obj_ub, destroy)
+
+            # Re-solve the relaxed master problem
+            (obj_lb, defend) = self._upper_solve(cplex_epsilon=cplex_epsilon)
+
+            ###
+            print("rho3 = "+str(obj_lb))
+
+            # Re-solve the lower-level response
+            ###(obj_lb, nonzero, feasible) = self._lower_solve(destroy=destroy,
+            ###                                       cplex_epsilon=cplex_epsilon)
+
+            break###
 
         # Main cutting plane loop end
         #----------------------------------------------------------------------
@@ -247,8 +258,7 @@ class UpperLevel:
         ### (unless its method is type 3)
 
         ### Placeholder output
-        return (0.0, [False for i in range(len(self.Net.arcs))],
-                [False for i in range(len(self.Net.arcs))], (0.0, 0.0), (0, 0))
+        return ((obj_ub+obj_lb)/2, defend, destroy, (0.0, 0.0), (0, 0))
 
     #--------------------------------------------------------------------------
     def _upper_solve(self, cplex_epsilon=0.001):
@@ -329,6 +339,39 @@ class UpperLevel:
                                          cplex_epsilon=cplex_epsilon)
         elif self.method == 3:
             return self.LowerLevel.solve(defend) ### Update depending on duality arguments
+
+    #--------------------------------------------------------------------------
+    def _add_constraint(self, objective, arcs):
+        """Adds a constraint to the relaxed master problem.
+
+        The constraints added to the relaxed master problem during the course
+        of the cutting plane algorithm bound the upper level objective
+        variable. They are based on the solutions of the lower-level problem,
+        and consist of the objective value plus a series of penalty terms for
+        each destroyed arc.
+
+        Requires the following positional arguments:
+            objective -- Objective value from lower-level program.
+            arcs -- Vector of arcs to include in the penalty term, as a boolean
+                list. This should correspond to the arcs destroyed for the
+                solution in question, so that defense vectors which defend such
+                arcs ignore the corresponding objective bound.
+        """
+
+        # Define new constraint variables and coefficients
+        new_con_vars = [self.obj_var]
+        new_con_coef = [1]
+        for i in range(len(self.Net.def_arcs)):
+            if arcs[i] == True:
+                new_con_vars.append(self.pen_vars[i])
+                new_con_coef.append(1)
+
+        # Add constraints to Cplex object
+        self.TopModel.linear_constraints.add(names=[
+                "s("+str(self.side_constraints)+")"],
+                lin_expr=[[new_con_vars, new_con_coef]],
+                senses=["G"], rhs=[objective])
+        self.side_constraints += 1
 
     #--------------------------------------------------------------------------
     def end(self):
