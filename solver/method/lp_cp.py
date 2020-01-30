@@ -26,7 +26,7 @@ class LPCuttingPlane:
     """
 
     #--------------------------------------------------------------------------
-    def __init__(self, net_in, big_m=1.0e20):
+    def __init__(self, net_in, big_m=1.0e10):
         """LP cutting plane solution object constructor.
 
         Ininitializes the Cplex objects associated with the lower-level
@@ -115,9 +115,8 @@ class LPCuttingPlane:
                                                senses=["L"],
                                                rhs=[self.Net.att_limit])
 
-        # Initialize an empty side constraint name list (which will be added to
-        # as lower-level solutions generate objective bounds)
-        self.side_con = []
+        # Keep track of the number of side constraints generated so far
+        self.side_constraints = 0
 
     #--------------------------------------------------------------------------
     def _lower_cplex_setup(self):
@@ -268,20 +267,33 @@ class LPCuttingPlane:
         """
 
         # Set local variables
-        obj_ub = -self.big_m # objective upper bound (upper-level problem)
-        obj_lb = self.big_m # objective lower bound (lower-level problem)
+        obj_ub = -cplex.infinity # objective upper bound (upper-level problem)
+        obj_lb = cplex.infinity # objective lower bound (lower-level problem)
         iteration= 1 # current iteration number
         status = 0 # exit code
+
+        ###
+        print("\nInitializing P2-3' cutting plane search.\n")
+        print("-"*20+"Iteration 0 "+"-"*20)
 
         # Solve the upper-level problem once for the given defense vector
         (obj_ub, destroy) = self._upper_solve(defend=defend,
                                               cplex_epsilon=cplex_epsilon)
 
+        ###
+        print("rho2 = "+str(obj_ub))
+
         # Find the lower-level response for the given attack vector
         (obj_lb, nonzero, feasible) = self._lower_solve(destroy=destroy,
                                                    cplex_epsilon=cplex_epsilon)
 
-        obj_gap = abs(obj_ub-obj_lb) # current optimality gap
+        ###
+        print("rho1 = "+str(obj_lb))
+
+        obj_gap = abs(obj_ub - obj_lb) # current optimality gap
+
+        ###
+        print("Optimality gap = "+str(obj_gap))
 
         #----------------------------------------------------------------------
         # Main cutting plane loop begin
@@ -289,6 +301,12 @@ class LPCuttingPlane:
         while (iteration < cutoff) and (obj_gap > gap) and (feasible == True):
 
             iteration += 1
+
+            ###
+            print("-"*20+"Iteration "+str(iteration-1)+" "+"-"*20)
+
+            # Add a constraint based on the nonzero flow vector
+            self._upper_add_constraint(obj_lb, nonzero)
 
             ### To do in loop:
             ### Add a constraint to the relaxed master problem (subroutine)
@@ -343,11 +361,11 @@ class LPCuttingPlane:
         # Get the objective value
         obj = self.UpperModel.solution.get_objective_value()
 
-        # Set unbounded objective value to big-M (CPLEX returns an objective
+        # Set unbounded objective value to infinity (CPLEX returns an objective
         # of 0.0 for unbounded primal problems)
         if ((obj == 0.0) and
             (self.UpperModel.solution.is_primal_feasible() == True)):
-            obj = self.big_m
+            obj = cplex.infinity
 
         # Get the solution vector
         destroy = [False for a in self.Net.att_arcs]
@@ -398,7 +416,7 @@ class LPCuttingPlane:
 
         # Set up containers for objective, nonzero flow indicator, and
         # feasibility status
-        obj = self.big_m
+        obj = cplex.infinity
         nonzero = [False for a in self.Net.arcs]
         status = self.LowerModel.solution.is_primal_feasible()
 
@@ -411,6 +429,39 @@ class LPCuttingPlane:
                     nonzero[i] = True
 
         return (obj, nonzero, status)
+
+    #--------------------------------------------------------------------------
+    def _upper_add_constraint(self, objective, arcs):
+        """Adds a constraint to the relaxed master problem.
+
+        The constraints added to the relaxed master problem during the course
+        of the cutting plane algorithm bound the upper level objective
+        variable. They are based on the solutions of the lower-level problem,
+        and consist of the objective value plus a series of penalty terms for
+        each nonzero flow arc.
+
+        Requires the following positional arguments:
+            objective -- Objective value from lower-level program.
+            arcs -- Vector of arcs to include in the penalty term, as a boolean
+                list. This should correspond to the arcs which carried nonzero
+                flow for the solution in question, so that attack vectors which
+                destroy such arcs ignore the corresponding objective bound.
+        """
+
+        # Define new constraint variables and coefficients
+        new_con_vars = [self.obj_var]
+        new_con_coef = [1]
+        for i in range(len(self.Net.att_arcs)):
+            if arcs[self.Net.att_arcs[i].id] == True:
+                new_con_vars.append(self.att_vars[i])
+                new_con_coef.append(-self.big_m)
+
+        # Add constraints to Cplex object
+        self.UpperModel.linear_constraints.add(names=[
+                "s("+str(self.side_constraints)+")"],
+                lin_expr=[[new_con_vars, new_con_coef]],
+                senses=["L"], rhs=[objective])
+        self.side_constraints += 1
 
     #--------------------------------------------------------------------------
     def end(self):
@@ -432,8 +483,8 @@ if __name__ == "__main__":
     #print(TestSolver._lower_solve())
     #print(TestSolver._lower_solve(destroy=[True, False, True, True, False,
     #                                       False, True, False, False]))
-    print(TestSolver._upper_solve(defend=[False, True, False, False, True,
-                                          False, True]))
+    #print(TestSolver._upper_solve(defend=[False, True, False, False, True,
+    #                                      False, True]))
     #print(TestSolver.UpperModel.solution.is_primal_feasible())
 
     print(TestSolver.solve([]))
