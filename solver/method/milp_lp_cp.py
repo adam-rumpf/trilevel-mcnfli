@@ -1,8 +1,11 @@
-"""Cutting plane solution algorithm for the lower-level bilevel program (MILP).
+"""Cutting plane solution algorithm for the lower-level bilevel MILP or LP.
 
 Includes a MILPCuttingPLane class which applies the cutting plane solution
 method given a protection vector. Returns the objective value and attack vector
 obtained from the lower-level bilevel maximization.
+
+The class can be used to model either the bilevel interdependency MILP or its
+LP relaxation.
 
 Requires a reference to the main Network object, which includes all needed
 information to define the trilevel network interdiction game based on the MILP
@@ -13,7 +16,7 @@ import cplex
 
 #==============================================================================
 class MILPCuttingPlane:
-    """Class to implement the cutting plane method for the MILP lower model.
+    """Class to implement the cutting plane method for the lower LP or MILP.
 
     This class also includes a local Cplex object to represent the lower-level
     program. The object remains active for the entirety of the trilevel
@@ -25,15 +28,22 @@ class MILPCuttingPlane:
     """
 
     #--------------------------------------------------------------------------
-    def __init__(self, net_in, big_m=1.0e10):
-        """MILP cutting plane solution object constructor.
+    def __init__(self, net_in, mode, big_m=1.0e10):
+        """LP or MILP cutting plane solution object constructor.
 
         Ininitializes the Cplex objects associated with the lower-level
-        subproblem.
+        subproblem, which is constructed either as the LP or the MILP version
+        of the interdependent network flows program, depending on the selected
+        option.
 
         Requires the following positional arguments:
             net_in -- Reference to the Network object that defines the problem
                 instance.
+            mode -- Selects whether to construct the lower-level program as the
+                binary interdependency MILP or the linear interdependency LP.
+                The numerical codes are as follows:
+                    1: binary interdependency MILP
+                    2: linear interdependency LP
 
         Accepts the following optional keyword arguments:
             big_m -- Large constant for use in the big-M method. Defaults to
@@ -49,7 +59,7 @@ class MILPCuttingPlane:
 
         # Initialize Cplex objects
         self._upper_cplex_setup()
-        self._lower_cplex_setup()
+        self._lower_cplex_setup(mode)
 
     #--------------------------------------------------------------------------
     def _upper_cplex_setup(self):
@@ -148,7 +158,7 @@ class MILPCuttingPlane:
         self.side_constraints = 0
 
     #--------------------------------------------------------------------------
-    def _lower_cplex_setup(self):
+    def _lower_cplex_setup(self, mode):
         """Initializes Cplex object for interdependent min-cost flow problem.
 
         The interdependent network problem is the defender's minimization MILP
@@ -158,6 +168,13 @@ class MILPCuttingPlane:
         The MILP is initialized with all arcs intact. The constraints are
         updated before each solve to reflect the damage caused by the
         attacker's decisions.
+
+        Requires the following positional arguments:
+            mode -- Selects whether to construct the lower-level program as the
+                binary interdependency MILP or the linear interdependency LP.
+                The numerical codes are as follows:
+                    1: binary interdependency MILP
+                    2: linear interdependency LP
         """
 
         # Initialize object
@@ -175,9 +192,10 @@ class MILPCuttingPlane:
 
         # Define a list of variable names
         self.flow_vars = ["x("+str(a.id)+")" for a in self.Net.arcs]
-        parents = [a[0] for a in self.Net.int] # parent arc objects
-        slack_vars = ["sl("+str(a.id)+")" for a in parents]
-        bin_vars = ["y("+str(a.id)+")" for a in parents]
+        if mode == 1:
+            parents = [a[0] for a in self.Net.int] # parent arc objects
+            slack_vars = ["sl("+str(a.id)+")" for a in parents]
+            bin_vars = ["y("+str(a.id)+")" for a in parents]
 
         # Define objective coefficients
         flow_costs = [a.cost for a in self.Net.arcs]
@@ -185,13 +203,18 @@ class MILPCuttingPlane:
         # Define flow bounds
         flow_lb = [0.0 for a in self.Net.arcs]
         flow_ub = [a.bound for a in self.Net.arcs]
-        slack_lb = [0.0 for a in parents]
+        if mode == 1:
+            slack_lb = [0.0 for a in parents]
 
         # Add variables to Cplex object
         self.LowerModel.variables.add(names=self.flow_vars, obj=flow_costs,
                                       lb=flow_lb, ub=flow_ub)
-        self.LowerModel.variables.add(names=slack_vars, lb=slack_lb)
-        self.LowerModel.variables.add(names=bin_vars, types="B"*len(parents))
+        if mode == 1:
+            self.LowerModel.variables.add(names=slack_vars, lb=slack_lb)
+            self.LowerModel.variables.add(names=bin_vars,
+                                          types="B"*len(parents))
+
+        ##################################################################################
 
         # Define a list of constraint names (flow attack constraints need to
         # change during the solution process, so that list is saved)
@@ -434,10 +457,10 @@ class MILPCuttingPlane:
 
     #--------------------------------------------------------------------------
     def _lower_solve(self, destroy=[], cplex_epsilon=0.001):
-        """Solves the lower-level interdependent network flows MILP.
+        """Solves the lower-level interdependent network flows LP or MILP.
 
-        Uses the lower-level Cplex object to solve the MILP defined by the
-        current attack vector. This process involves cleaning up the model,
+        Uses the lower-level Cplex object to solve the LP or MILP defined by
+        the current attack vector. This process involves cleaning up the model,
         modifying the constraints, calling the CPLEX solver, and then
         interpreting and returning the results.
 
@@ -468,7 +491,7 @@ class MILPCuttingPlane:
             self.LowerModel.linear_constraints.set_rhs([(self.flow_att[i],
                 new_rhs[i]) for i in range(len(self.flow_att))])
 
-        # Solve the MILP
+        # Solve the LP or MILP
         self.LowerModel.solve()
 
         # Set up containers for objective, nonzero flow indicator, and
@@ -536,7 +559,7 @@ class MILPCuttingPlane:
 if __name__ == "__main__":
     import network.network as net
     TestNet = net.Network("../../problems/smallnet.min")
-    TestSolver = MILPCuttingPlane(TestNet)
+    TestSolver = MILPCuttingPlane(TestNet, 2)
     #print(TestSolver._lower_solve())
     #print(TestSolver._lower_solve(destroy=[True, False, True, True, False,
     #                                       False, True, False, False]))
