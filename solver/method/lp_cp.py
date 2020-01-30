@@ -67,6 +67,12 @@ class LPCuttingPlane:
         # Initialize object
         self.UpperModel = cplex.Cplex()
 
+        # Set parameters
+        self.UpperModel.parameters.mip.tolerances.integrality = 1.0e-8
+        print(self.UpperModel.parameters.mip.tolerances.mipgap)
+        self.UpperModel.parameters.mip.tolerances.mipgap = 0.01
+        print(self.UpperModel.parameters.mip.tolerances.mipgap)
+
         # Silence CPLEX output streams
         self.UpperModel.set_log_stream(None)
         self.UpperModel.set_results_stream(None)
@@ -263,6 +269,7 @@ class LPCuttingPlane:
                     0: Successful exit with finite objective value.
                     1: Successful exit with infinite objective value.
                     2: Exit due to error.
+                    3: Exit due to iteration cutoff
             iterations -- Number of iterations of main cutting plane loop.
         """
 
@@ -298,7 +305,7 @@ class LPCuttingPlane:
         #----------------------------------------------------------------------
         # Main cutting plane loop begin
 
-        while (iteration < cutoff) and (obj_gap > gap) and (feasible == True):
+        while (iteration < cutoff) and (obj_gap > gap):
 
             iteration += 1
 
@@ -308,14 +315,36 @@ class LPCuttingPlane:
             # Add a constraint based on the nonzero flow vector
             self._upper_add_constraint(obj_lb, nonzero)
 
-            ### To do in loop:
-            ### Add a constraint to the relaxed master problem (subroutine)
-            ### Re-solve the upper level problem.
-            ### Re-solve the lower level problem.
-            ###     If it's infeasible, we can break.
-            ### Recalculate the optimality gap.
+            # Re-solve the relaxed master problem
+            (obj_ub, destroy) = self._upper_solve(cplex_epsilon=cplex_epsilon)
 
-            break ### Breaking immediately for testing purposes
+            ###
+            print("rho2 = "+str(obj_ub))
+
+            # Re-solve the lower-level response
+            (obj_lb, nonzero, feasible) = self._lower_solve(destroy=destroy,
+                                                   cplex_epsilon=cplex_epsilon)
+
+            ### Include the potential to break here if LL is infeasible.
+            if feasible == False:
+                print("Response problem infeasible.")
+                print(destroy)
+                obj_ub = cplex.infinity
+                obj_lb = cplex.infinity
+                status = 1
+                break
+
+            ###
+            print("rho1 = "+str(obj_lb))
+
+            # Recalculate the optimality gap
+            obj_gap = abs(obj_ub - obj_lb)
+
+            ###
+            print("Optimality gap = "+str(obj_gap))
+
+            if (iteration >= cutoff) and (obj_gap > gap):
+                status = 3
 
         # Main cutting plane loop end
         #----------------------------------------------------------------------
@@ -487,7 +516,11 @@ if __name__ == "__main__":
     #                                      False, True]))
     #print(TestSolver.UpperModel.solution.is_primal_feasible())
 
-    print(TestSolver.solve([]))
+    print(TestSolver.solve([False, False, True, False, False, False, False],
+                           cutoff=20))
+    print(TestSolver.UpperModel.solution.get_values())
+    print(TestSolver.UpperModel.get_problem_type())
+    print(TestSolver.UpperModel.solution.MIP.get_best_objective())
 
     TestSolver.LowerModel.write("ll_program.lp")
     TestSolver.UpperModel.write("ul_program.lp")
