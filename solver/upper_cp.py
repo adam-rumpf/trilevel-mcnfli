@@ -190,6 +190,11 @@ class UpperLevel:
             iterations -- Tuple of iterations of each cutting plane loop (upper
                 level then lower level), with -1 if not applicable (for example
                 in the case of the duality lower-level program)
+            exit_status -- Numerical code to describe the results of the
+                solution process, including the following:
+                    0: Successful exit with finite objective value.
+                    2: Exit due to error.
+                    3: Exit due to iteration cutoff
         """
 
         # Set local variables
@@ -198,6 +203,7 @@ class UpperLevel:
         iteration= 1 # current iteration number
         upper_time = 0 # total time spent solving the upper-level models
         lower_time = 0 # total time spent solving the lower-level models
+        exit_status = 0
 
         ###
         print("\nInitializing P1-3' cutting plane search.\n")
@@ -254,6 +260,11 @@ class UpperLevel:
             lower_time += time.time() - timer
             lower_iterations += li
 
+            # Break in case of lower-level error
+            if status == 2:
+                exit_status = 2
+                break
+
             ###
             print("\n"+"="*60)
             print("rho2 = "+str(obj_ub))
@@ -264,23 +275,14 @@ class UpperLevel:
             ###
             print("Optimality gap = "+str(obj_gap))
 
-            break###
+            if (iteration >= cutoff) and (obj_gap > gap):
+                exit_status = 3
 
         # Main cutting plane loop end
         #----------------------------------------------------------------------
 
-
-
-
-
-
-
-        ### Needs to feed lower_cutoff and lower_gap to submodel solver
-        ### (unless its method is type 3)
-
-        ### Placeholder output
         return ((obj_ub+obj_lb)/2, defend, destroy, (upper_time, lower_time),
-                (iteration, lower_iterations))
+                (iteration, lower_iterations), exit_status)
 
     #--------------------------------------------------------------------------
     def _upper_solve(self, cplex_epsilon=0.001):
