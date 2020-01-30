@@ -75,7 +75,7 @@ class LPCuttingPlane:
 
         # Set as maximization
         self.UpperModel.objective.set_sense(
-                self.UpperModel.objective.sense.maximize)
+            self.UpperModel.objective.sense.maximize)
 
         # Note: In order to avoid problems with the behavior of CPLEX with
         # big-M constraints, for each attack variable we also define a
@@ -172,7 +172,7 @@ class LPCuttingPlane:
 
         # Set as minimization
         self.LowerModel.objective.set_sense(
-                self.LowerModel.objective.sense.minimize)
+            self.LowerModel.objective.sense.minimize)
 
         # Define a list of variable names
         self.flow_vars = ["x("+str(a.id)+")" for a in self.Net.arcs]
@@ -305,7 +305,7 @@ class LPCuttingPlane:
 
         ###
         print("\nInitializing P2-3' cutting plane search.\n")
-        print("-"*20+"Iteration 0 "+"-"*20)
+        print("-"*20+" Iteration 0 "+"-"*20)
 
         # Solve the upper-level problem once for the given defense vector
         (obj_ub, destroy) = self._upper_solve(defend=defend,
@@ -334,7 +334,7 @@ class LPCuttingPlane:
             iteration += 1
 
             ###
-            print("-"*20+"Iteration "+str(iteration-1)+" "+"-"*20)
+            print("-"*20+" Iteration "+str(iteration-1)+" "+"-"*20)
 
             # Add a constraint based on the nonzero flow vector
             self._upper_add_constraint(obj_lb, nonzero)
@@ -352,7 +352,6 @@ class LPCuttingPlane:
             ### Include the potential to break here if LL is infeasible.
             if feasible == False:
                 print("Response problem infeasible.")
-                print(destroy)
                 obj_ub = cplex.infinity
                 obj_lb = cplex.infinity
                 status = 1
