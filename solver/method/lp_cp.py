@@ -71,38 +71,6 @@ class LPCuttingPlane:
         ###self.UpperModel.parameters.mip.tolerances.integrality = 1.0e-8
         ###self.UpperModel.parameters.mip.tolerances.mipgap = 0.01
 
-        ##############
-        # Problem: The current big-M formulation can allow the attacker to
-        # select values very slightly above 0.0 for their attack decisions.
-        # This allows them to enjoy the benefits of the -M penalty costs in the
-        # constraints, while acting as though they have not actually attacked
-        # that arc.
-        # See about using indicator constraints. For each attack variable, also
-        # define a corresponding penalty variable, which is continuous on
-        # [0, M]. In the relaxed master problem's constraints, replace the
-        # attack variable with this penalty variable. Increasing the penalty
-        # variable has the effect of eliminating the bound, so normally the
-        # program will want to make them as small as possible.
-        # Then add an indicator constraint so that, when the attack variable
-        # is 0, a bound of "var <= 0" applies to the penalty variable, which
-        # prevents us from taking advantage of it when the attack variable is
-        # 0 (or close enough to it).
-        #
-        # self.UpperModel.indicator_constraints.add(...)
-        #
-        # The upper level of the trilevel cutting plane algorithm can be made
-        # to work exclusively with indicator constraints.
-        #
-        ### To do:
-        # Add a penalty variable for each attack variable, continuous on [0,M].
-        # Add an indicator constraint for each attack/penalty pair that forces
-        # the penalty to be <= 0 whenever the attack is 0.
-        # When adding a constraint, use the penalty variables in place of the
-        # attack variables.
-        # Consider how this should be implemented into the other MILPs of this
-        # project (duality MILP, MILP model as cutting plane lower level,
-        # upper trilevel MILP)
-
         # Silence CPLEX output streams
         self.UpperModel.set_log_stream(None)
         self.UpperModel.set_results_stream(None)
@@ -113,9 +81,20 @@ class LPCuttingPlane:
         self.UpperModel.objective.set_sense(
                 self.UpperModel.objective.sense.maximize)
 
+        # Note: In order to avoid problems with the behavior of CPLEX with
+        # big-M constraints, for each attack variable we also define a
+        # continuous penalty variable on [0, M] along with an indicator
+        # constraint that forces it to be 0 whenever the attack variable is 0.
+        # Within the relaxed master problem's constraint set, we use the
+        # penalty variables rather than a product of M and an attack variable
+        # in order to avoid the possibility of a very small nonzero attack
+        # decision being multiplied by M to erroneously nullify one of the
+        # objective bound constraints.
+
         # Define a list of variable names
         self.obj_var = "ob"
         self.att_vars = ["at("+str(a.id)+")" for a in self.Net.att_arcs]
+        self.pen_vars = ["pt("+str(a.id)+")" for a in self.Net.att_arcs]
 
         # Add objective bound variable to Cplex object
         self.UpperModel.variables.add(obj=[1.0], names=[self.obj_var],
@@ -126,8 +105,16 @@ class LPCuttingPlane:
         self.UpperModel.variables.add(names=self.att_vars,
                                       types="B"*len(self.att_vars))
 
+        # Add penalty variables to Cplex object
+        self.UpperModel.variables.add(names=self.pen_vars,
+                                    lb=[0.0 for a in self.Net.att_arcs],
+                                    ub=[self.big_m for a in self.Net.att_arcs])
+
         # Define a list of attack variable constraint names for defensible arcs
         self.att_con = ["df("+str(a.id)+")" for a in self.Net.def_arcs]
+
+        # Define a list of penalty variable indicator constraint names
+        pen_con = ["ap("+str(a.id)+")" for a in self.Net.att_arcs]
 
         # Define sense string for attack constraints (all <=)
         att_sense = "L"*len(self.Net.def_arcs)
@@ -142,6 +129,9 @@ class LPCuttingPlane:
         att_lim_expr = [[[v for v in self.att_vars],
                          [1 for v in self.att_vars]]]
 
+        # Define penalty variable constraints to limit value when activated
+        pen_expr = [[[v], [1]] for v in self.pen_vars]
+
         # Add attack constraints to Cplex object
         self.UpperModel.linear_constraints.add(names=self.att_con,
                                                lin_expr=att_expr,
@@ -150,6 +140,14 @@ class LPCuttingPlane:
                                                lin_expr=att_lim_expr,
                                                senses=["L"],
                                                rhs=[self.Net.att_limit])
+
+        # Add penalty variable indicator constraints to Cplex object
+        self.UpperModel.indicator_constraints.add_batch(name=pen_con,
+                                       indvar=self.att_vars,
+                                       complemented=[1 for a in self.att_vars],
+                                       lin_expr=pen_expr,
+                                       sense=["L" for a in self.att_vars],
+                                       rhs=[0.0 for a in self.att_vars])
 
         # Keep track of the number of side constraints generated so far
         self.side_constraints = 0
@@ -512,7 +510,7 @@ class LPCuttingPlane:
         new_con_coef = [1]
         for i in range(len(self.Net.att_arcs)):
             if arcs[self.Net.att_arcs[i].id] == True:
-                new_con_vars.append(self.att_vars[i])
+                new_con_vars.append(self.pen_vars[i])
                 new_con_coef.append(-self.big_m)
 
         # Add constraints to Cplex object
@@ -546,11 +544,11 @@ if __name__ == "__main__":
     #                                      False, True]))
     #print(TestSolver.UpperModel.solution.is_primal_feasible())
 
-    print(TestSolver.solve([False, False, True, False, False, False, False],
+    print(TestSolver.solve([False, False, False, False, True, False, False],
                            cutoff=20))
     print(TestSolver.UpperModel.solution.get_values())
-    print(TestSolver.UpperModel.get_problem_type())
-    print(TestSolver.UpperModel.solution.MIP.get_best_objective())
+    #print(TestSolver.UpperModel.get_problem_type())
+    #print(TestSolver.UpperModel.solution.MIP.get_best_objective())
 
     TestSolver.LowerModel.write("ll_program.lp")
     TestSolver.UpperModel.write("ul_program.lp")
