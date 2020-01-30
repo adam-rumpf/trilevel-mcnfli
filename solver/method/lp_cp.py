@@ -208,7 +208,7 @@ class LPCuttingPlane:
         for intd in self.Net.int:
 
             # Get parent/child arc names
-            var_pair = [self.flow_vars[intd[1].id], self.flow_vars[intd[0].id]]
+            var_pair = [self.flow_vars[intd[0].id], self.flow_vars[intd[1].id]]
 
             # Set coefficients
             coef = [-(1.0*intd[0].bound/intd[1].bound), 1.0]
