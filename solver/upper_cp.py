@@ -9,6 +9,7 @@ in their solutions of the lower-level problem. Different methods are included
 here to select which solution method to use for the lower-level.
 """
 
+import cplex
 import time
 
 if __name__ == "__main__":
@@ -39,7 +40,7 @@ class UpperLevel:
     """
 
     #--------------------------------------------------------------------------
-    def __init__(self, net_in, method):
+    def __init__(self, net_in, method, big_m=1.0e16):
         """Solution object constructor.
 
         Initializes a lower-level model object corresponding to the chosen
@@ -53,6 +54,12 @@ class UpperLevel:
                     1: MILP cutting plane
                     2: LP cutting plane
                     3: LP duality
+
+        Accepts the following optional keyword arguments:
+            big_m -- Large constant for use in the big-M method. Should be
+                chosen to be significantly larger than the largest objective
+                allowed to be returned by the lower-level submodel. Defaults to
+                1.0e16.
         """
 
         self.Net = net_in # set network reference
@@ -64,6 +71,44 @@ class UpperLevel:
             self.LowerLevel = lpcp.LPCuttingPlane(self.Net)
         elif method == 3:
             self.LowerLevel = lpd.LPDuality(self.Net)
+
+        # Initialize Cplex object
+        self._cplex_setup()
+
+    #--------------------------------------------------------------------------
+    def _cplex_setup(self):
+        """Initializes Cplex object for the top-level relaxed master problem.
+
+        The top level of the trilevel program's main cutting plane method is a
+        relaxed master problem consisting of the defender's minimization MILP.
+        It includes an expanding set of constraints based on previously-
+        calculated lower level solutions.
+
+        The MILP is initialized with no constraints on the objective value. A
+        constraint is added after each solution of the lower-level program.
+        """
+
+        # Initialize Cplex object
+        self.TopModel = cplex.Cplex()
+
+        # Silence CPLEX output streams
+        self.TopModel.set_log_stream(None)
+        self.TopModel.set_results_stream(None)
+        self.TopModel.set_error_stream(None)
+        self.TopModel.set_warning_stream(None)
+
+        # Set as minimization
+        self.TopModel.objective.set_sense(
+                self.TopModel.objective.sense.minimize)
+
+        ####################################################################################
+        ### Include indicator constraints instead of big-M constraints.
+
+
+
+
+
+
 
     #--------------------------------------------------------------------------
     def solve_upper(self, cutoff=100, lower_cutoff=100, gap=0.01,
@@ -124,3 +169,24 @@ class UpperLevel:
         # Simply call local lower-level solver with given defense vector
 
         return self.LowerLevel.solve(defend)
+
+    #--------------------------------------------------------------------------
+    def end(self):
+        """Closes all internal Cplex models.
+
+        This should be called before the UpperLevel object is discarded. It
+        also ends the Cplex models of the lower-level objects.
+        """
+
+        self.TopModel.end()
+        self.LowerLevel.end()
+
+###############################################################################
+### For testing (delete later)
+
+if __name__ == "__main__":
+    import method.network.network as net
+    TestNet = net.Network("../problems/smallnet.min")
+    TestSolver = UpperLevel(TestNet, 2)
+
+    TestSolver.end()

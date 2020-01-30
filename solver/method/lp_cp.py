@@ -38,7 +38,7 @@ class LPCuttingPlane:
 
         Accepts the following optional keyword arguments:
             big_m -- Large constant for use in the big-M method. Defaults to
-                1.0e20.
+                1.0e10.
         """
 
         self.Net = net_in # set reference to network object
@@ -66,10 +66,6 @@ class LPCuttingPlane:
 
         # Initialize object
         self.UpperModel = cplex.Cplex()
-
-        # Set parameters
-        ###self.UpperModel.parameters.mip.tolerances.integrality = 1.0e-8
-        ###self.UpperModel.parameters.mip.tolerances.mipgap = 0.01
 
         # Silence CPLEX output streams
         self.UpperModel.set_log_stream(None)
