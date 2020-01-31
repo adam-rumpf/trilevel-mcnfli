@@ -36,9 +36,14 @@ The result summary file `summary.txt` includes the following tab-separated colum
 * `defense`: Number of arcs that may be defended.
 * `attack`: Number of arcs that may be attacked.
 * `milp_cp_time`: Total time spent to solve binary interdependence model via cutting plane.
+* `milp_cp_iter`: Number of cutting plane iterations required for the overall binary interdependence model.
+* `milp_cp_iter_lower`: Number of cutting plane iterations required for the lower bilevel binary interdependence model.
 * `milp_obj`: Objective value of binary interdependence model.
 * `lp_cp_time`: Total time spent to solve linear interdependence model via cutting plane.
+* `lp_cp_iter`: Number of cutting plane iterations required for the overall linear interdependence model with cutting plane bilevel submodel.
+* `lp_cp_iter_lower`: Number of cutting plane iterations required for the lower bilevel linear interdependence model.
 * `lp_dual_time`: Total time spent to solve linear interdependence model via duality.
+* `lp_dual_iter`: Number of cutting plane iterations required for the overall linear interdependence model with duality bilevel submodel.
 * `lp_obj`: Objective value of linear interdependence model.
 * `lp_milp_obj`: Objective value of binary interdependence model resulting from the linear interdependence model's defensive decisions.
 
