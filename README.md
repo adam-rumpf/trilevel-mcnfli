@@ -17,3 +17,29 @@ This module includes a variety of submodules for running various aspects of the 
   * `upper_cp.py`: Driver for the upper-level cutting plane algorithm.
 * `driver.py`: Main driver. Processes each computational trial file one-by-one to apply all available solution methods and record the results.
 * `solver.py`: Solution algorithm driver. Used to call each solution algorithm in turn and store its results.
+
+## Input Format
+
+The solution algorithm driver, `solver.py`, requires a reference to a modified NETGEN `.min` file to define a problem instance. The main driver, `driver.py`, requires a reference to a folder of `.min` files and uses `solver.py` to process each of them in turn as a batch.
+
+## Output Format
+
+The main driver, `driver.py`, writes the results of the trials to a collection of output files in a specified folder. All output files include a row for each trial.
+
+The result summary file `summary.txt` includes the following tab-separated columns:
+
+* `file`: Name of the trial's input file.
+* `nodes`: Number of nodes in the input network.
+* `arcs`: Number of arcs in the input network.
+* `int`: Number of interdependencies in the input network.
+* `type`: Type of interdependency (`a` for arc parents, `n` for node parents).
+* `defense`: Number of arcs that may be defended.
+* `attack`: Number of arcs that may be attacked.
+* `milp_cp_time`: Total time spent to solve binary interdependence model via cutting plane.
+* `milp_obj`: Objective value of binary interdependence model.
+* `lp_cp_time`: Total time spent to solve linear interdependence model via cutting plane.
+* `lp_dual_time`: Total time spent to solve linear interdependence model via duality.
+* `lp_obj`: Objective value of linear interdependence model.
+* `lp_milp_obj`: Objective value of binary interdependence model resulting from the linear interdependence model's defensive decisions.
+
+There is also an output file for each of the three solution methods (`milp_cp_sol.txt`, `lp_cp_sol.txt`, and `lp_dual_sol.txt`) which lists the complete defense solution vector. Each of these files includes a column to indicate the input file name, followed by tab-separated columns to indicate the complete binary solution vector arranged in order of arc index.

@@ -80,10 +80,13 @@ class TrialSolver:
 
         # Apply solver, save defense, and time entire process
         tot = time.time()
-        (obj, self.last_defense, attack, times, iterations) = Up.solve_upper(
+        (obj, self.last_defense, attack, times, iterations, status) = Up.solve(
                 cutoff=upper_cutoff, lower_cutoff=lower_cutoff, gap=upper_gap,
                 lower_gap=lower_gap)
         tot = time.time() - tot
+
+        # End solver
+        Up.end()
 
         # Return results
         return (obj, self.last_defense, attack, (tot, times[0], times[1]),
@@ -127,10 +130,13 @@ class TrialSolver:
 
         # Apply solver, save defense, and time entire process
         tot = time.time()
-        (obj, self.last_defense, attack, times, iterations) = Up.solve_upper(
+        (obj, self.last_defense, attack, times, iterations, status) = Up.solve(
                 cutoff=upper_cutoff, lower_cutoff=lower_cutoff, gap=upper_gap,
                 lower_gap=lower_gap)
         tot = time.time() - tot
+
+        # End solver
+        Up.end()
 
         # Return results
         return (obj, self.last_defense, attack, (tot, times[0], times[1]),
@@ -169,20 +175,31 @@ class TrialSolver:
 
         # Apply solver, save defense, and time entire process
         tot = time.time()
-        (obj, self.last_defense, attack, times, iterations) = Up.solve_upper(
+        (obj, self.last_defense, attack, times, iterations, status) = Up.solve(
                 cutoff=upper_cutoff, gap=upper_gap)
         tot = time.time() - tot
+
+        # End solver
+        Up.end()
 
         # Return results
         return (obj, self.last_defense, attack, (tot, times[0], times[1]),
                 iterations)
 
     #--------------------------------------------------------------------------
-    def solve_milp_defend(self, defend):
+    def solve_milp_defend(self, defend, cutoff=100, gap=0.01):
         """Calculates the MILP solution for a given defensive decision.
 
         Requires the following positional arguments:
             defend -- Vector of defended arcs, as a boolean list.
+
+        Accepts the following optional keyword arguments:
+            cutoff -- Iteration cutoff for the overall cutting plane main loop.
+                Defaults to 100. Used only for cutting plane lower-level
+                methods.
+            gap -- Optimality gap tolerance for the overall cutting plane main
+                loop. Defaults to 0.01. Used only for cutting plane lower-
+                level methods.
 
         Returns a tuple containing the following elements:
             objective -- Objective value of the lower-level bilevel program.
@@ -200,5 +217,24 @@ class TrialSolver:
         # Initialize a temporary upper-level solver object
         Up = ucp.UpperLevel(self.Net, 1)
 
-        # Return lower level solution for specified defense
-        return Up.solve_lower(defend)
+        # Get lower level solution for specified defense
+        out = Up.lower_solve(defend, cutoff=cutoff, gap=gap)
+
+        # End solver
+        Up.end()
+
+        # Return solution
+        return out
+
+###############################################################################
+### For testing (delete later)
+
+if __name__ == "__main__":
+    TestSolver = TrialSolver("problems/smallnet.min")
+
+    print(TestSolver.solve_milp_cutting_plane())
+    print(TestSolver.solve_lp_cutting_plane())
+    print(TestSolver.last_defense)
+    print(TestSolver.solve_milp_defend(TestSolver.last_defense))
+    print(TestSolver.solve_milp_defend([False
+                                        for a in TestSolver.Net.def_arcs]))
