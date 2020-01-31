@@ -1,8 +1,11 @@
-"""Cutting plane solution algorithm for the lower-level bilevel program (MILP).
+"""Cutting plane solution algorithm for the lower-level bilevel MILP or LP.
 
-Includes a MILPCuttingPLane class which applies the cutting plane solution
-method given a protection vector. Returns the objective value and attack vector
+Includes a LLCuttingPLane class which applies the cutting plane solution method
+given a protection vector. Returns the objective value and attack vector
 obtained from the lower-level bilevel maximization.
+
+The class can be used to model either the bilevel interdependency MILP or its
+LP relaxation.
 
 Requires a reference to the main Network object, which includes all needed
 information to define the trilevel network interdiction game based on the MILP
@@ -12,8 +15,8 @@ binary interdependence model.
 import cplex
 
 #==============================================================================
-class MILPCuttingPlane:
-    """Class to implement the cutting plane method for the MILP lower model.
+class LLCuttingPlane:
+    """Class to implement the cutting plane method for the lower LP or MILP.
 
     This class also includes a local Cplex object to represent the lower-level
     program. The object remains active for the entirety of the trilevel
@@ -25,15 +28,22 @@ class MILPCuttingPlane:
     """
 
     #--------------------------------------------------------------------------
-    def __init__(self, net_in, big_m=1.0e10):
-        """MILP cutting plane solution object constructor.
+    def __init__(self, net_in, mode, big_m=1.0e10):
+        """LP or MILP cutting plane solution object constructor.
 
         Ininitializes the Cplex objects associated with the lower-level
-        subproblem.
+        subproblem, which is constructed either as the LP or the MILP version
+        of the interdependent network flows program, depending on the selected
+        option.
 
         Requires the following positional arguments:
             net_in -- Reference to the Network object that defines the problem
                 instance.
+            mode -- Selects whether to construct the lower-level program as the
+                binary interdependency MILP or the linear interdependency LP.
+                The numerical codes are as follows:
+                    1: binary interdependency MILP
+                    2: linear interdependency LP
 
         Accepts the following optional keyword arguments:
             big_m -- Large constant for use in the big-M method. Defaults to
@@ -49,7 +59,7 @@ class MILPCuttingPlane:
 
         # Initialize Cplex objects
         self._upper_cplex_setup()
-        self._lower_cplex_setup()
+        self._lower_cplex_setup(mode)
 
     #--------------------------------------------------------------------------
     def _upper_cplex_setup(self):
@@ -148,7 +158,7 @@ class MILPCuttingPlane:
         self.side_constraints = 0
 
     #--------------------------------------------------------------------------
-    def _lower_cplex_setup(self):
+    def _lower_cplex_setup(self, mode):
         """Initializes Cplex object for interdependent min-cost flow problem.
 
         The interdependent network problem is the defender's minimization MILP
@@ -158,6 +168,13 @@ class MILPCuttingPlane:
         The MILP is initialized with all arcs intact. The constraints are
         updated before each solve to reflect the damage caused by the
         attacker's decisions.
+
+        Requires the following positional arguments:
+            mode -- Selects whether to construct the lower-level program as the
+                binary interdependency MILP or the linear interdependency LP.
+                The numerical codes are as follows:
+                    1: binary interdependency MILP
+                    2: linear interdependency LP
         """
 
         # Initialize object
@@ -175,9 +192,6 @@ class MILPCuttingPlane:
 
         # Define a list of variable names
         self.flow_vars = ["x("+str(a.id)+")" for a in self.Net.arcs]
-        parents = [a[0] for a in self.Net.int] # parent arc objects
-        slack_vars = ["sl("+str(a.id)+")" for a in parents]
-        bin_vars = ["y("+str(a.id)+")" for a in parents]
 
         # Define objective coefficients
         flow_costs = [a.cost for a in self.Net.arcs]
@@ -185,30 +199,24 @@ class MILPCuttingPlane:
         # Define flow bounds
         flow_lb = [0.0 for a in self.Net.arcs]
         flow_ub = [a.bound for a in self.Net.arcs]
-        slack_lb = [0.0 for a in parents]
 
         # Add variables to Cplex object
         self.LowerModel.variables.add(names=self.flow_vars, obj=flow_costs,
                                       lb=flow_lb, ub=flow_ub)
-        self.LowerModel.variables.add(names=slack_vars, lb=slack_lb)
-        self.LowerModel.variables.add(names=bin_vars, types="B"*len(parents))
 
-        # Define a list of constraint names (flow attack constraints need to
-        # change during the solution process, so that list is saved)
+        # Define a list of common constraint names (flow attack constraints
+        # need to change during the solution process, so that list is saved)
         flow_con = ["c("+str(n.id)+")" for n in self.Net.nodes]
         self.flow_att = ["a("+str(a.id)+")" for a in self.Net.att_arcs]
-        flow_int = ["i("+str(i)+")" for i in range(len(self.Net.int))]
 
-        # Define sense strings for constraints (== for flow conservation, <=
-        # for all others)
+        # Define sense strings for common constraints (== for flow
+        # conservation, <= for all others)
         flow_con_sense = "E"*len(flow_con)
         flow_att_sense = "L"*len(self.flow_att)
-        flow_int_sense = "L"*len(flow_int)
 
-        # Define constraint righthand sides
+        # Define common constraint righthand sides
         flow_con_rhs = [n.supply for n in self.Net.nodes]
         flow_att_rhs = [a.bound for a in self.Net.att_arcs]
-        flow_int_rhs = [0.0 for i in self.Net.int]
 
         # Define flow conservation constraints for each node
         flow_con_expr = [[[], []] for n in self.Net.nodes]
@@ -231,23 +239,7 @@ class MILPCuttingPlane:
         flow_att_expr = [[[self.flow_vars[a.id]], [1.0]]
                          for a in self.Net.att_arcs]
 
-        # Define interdependency constraints (arranged with variables on LHS)
-        flow_int_expr = [[[], []] for i in self.Net.int]
-        i = 0
-        for intd in self.Net.int:
-
-            # Get parent/child arc names
-            var_pair = [self.flow_vars[intd[0].id], self.flow_vars[intd[1].id]]
-
-            # Set coefficients
-            coef = [-(1.0*intd[0].bound/intd[1].bound), 1.0]
-
-            # Update constraint list
-            flow_int_expr[i] = [var_pair, coef]
-
-            i += 1
-
-        # Add constraints to Cplex object
+        # Add common constraints to Cplex object
         self.LowerModel.linear_constraints.add(names=flow_con,
                                                lin_expr=flow_con_expr,
                                                senses=flow_con_sense,
@@ -256,10 +248,98 @@ class MILPCuttingPlane:
                                                lin_expr=flow_att_expr,
                                                senses=flow_att_sense,
                                                rhs=flow_att_rhs)
-        self.LowerModel.linear_constraints.add(names=flow_int,
-                                               lin_expr=flow_int_expr,
-                                               senses=flow_int_sense,
-                                               rhs=flow_int_rhs)
+
+        # Add interdependencies for chosen model type
+        if mode == 1:
+
+            # MILP formulation
+
+            # The binary interdependency formulation requires defining slack
+            # variables and binary linking variables along with logical
+            # constraints. For the CPLEX model we implement this by using
+            # indicator constraints rather than the binary linking variables
+            # in the original model.
+            # We now use binary slack variables in a constraint of the form:
+            #   u_ij s_ij^kl + x_ij >= u_ij
+            # If x_ij = u_ij, then s_ij^kl is free.
+            # If x_ij < u_ij, then s_ij^kl = 1.
+            # We will include an indicator constraint that forces x_kl <= 0
+            # when s_ij^kl = 1.
+
+            parents = [a[0] for a in self.Net.int] # parent arc objects
+            children = [a[1] for a in self.Net.int] # child arc objects
+
+            # Add binary slack indicator variables to Cplex object
+            slack_vars = ["sl("+str(a.id)+")" for a in parents]
+
+            # Add variables to Cplex object
+            self.LowerModel.variables.add(names=slack_vars,
+                                          types="B"*len(parents))
+
+            # Define slack constraint names, senses, and righthand sides
+            slack_con = ["sc("+str(a.id)+")" for a in parents]
+            slack_con_sense = "G"*len(parents)
+            slack_con_rhs = [a.bound for a in parents]
+
+            # Define slack constraint linear expressions
+            slack_con_expr = [[[slack_vars[i], self.flow_vars[parents[i].id]],
+                           [parents[i].bound, 1]] for i in range(len(parents))]
+
+            # Add slack constraints to Cplex object
+            self.LowerModel.linear_constraints.add(names=slack_con,
+                                                   lin_expr=slack_con_expr,
+                                                   senses=slack_con_sense,
+                                                   rhs=slack_con_rhs)
+
+            # Define indicator constraint names
+            child_con = ["i("+str(a.id)+")" for a in children]
+
+            # Define interdependency constraints
+            child_expr = [[[self.flow_vars[a.id]], [1]] for a in children]
+
+            # Add interdependency indicator constraints to Cplex object
+            self.LowerModel.indicator_constraints.add_batch(name=child_con,
+                                             indvar=slack_vars,
+                                             complemented=[0 for a in parents],
+                                             lin_expr=child_expr,
+                                             sense=["L" for a in parents],
+                                             rhs=[0.0 for a in children])
+
+        elif mode == 2:
+
+            # LP formulation
+
+            # The liner interdependency formulation does not require any
+            # variables beyond the existing flow variables. We simply need to
+            # define flow bounds that link pairs of interdependent arcs.
+
+            # Define constraint names, senses, and righthand sides
+            flow_int = ["i("+str(i)+")" for i in range(len(self.Net.int))]
+            flow_int_sense = "L"*len(flow_int)
+            flow_int_rhs = [0.0 for i in self.Net.int]
+
+            # Define interdependency constraints (with variables on LHS)
+            flow_int_expr = [[[], []] for i in self.Net.int]
+            i = 0
+            for intd in self.Net.int:
+
+                # Get parent/child arc names
+                var_pair = [self.flow_vars[intd[0].id],
+                            self.flow_vars[intd[1].id]]
+
+                # Set coefficients
+                coef = [-(1.0*intd[0].bound/intd[1].bound), 1.0]
+
+                # Update constraint list
+                flow_int_expr[i] = [var_pair, coef]
+
+                i += 1
+
+            # Add interdependencies to model
+            self.LowerModel.linear_constraints.add(names=flow_int,
+                                                   lin_expr=flow_int_expr,
+                                                   senses=flow_int_sense,
+                                                   rhs=flow_int_rhs)
 
     #--------------------------------------------------------------------------
     def solve(self, defend, cutoff=100, gap=0.01, cplex_epsilon=0.001):
@@ -434,10 +514,10 @@ class MILPCuttingPlane:
 
     #--------------------------------------------------------------------------
     def _lower_solve(self, destroy=[], cplex_epsilon=0.001):
-        """Solves the lower-level interdependent network flows MILP.
+        """Solves the lower-level interdependent network flows LP or MILP.
 
-        Uses the lower-level Cplex object to solve the MILP defined by the
-        current attack vector. This process involves cleaning up the model,
+        Uses the lower-level Cplex object to solve the LP or MILP defined by
+        the current attack vector. This process involves cleaning up the model,
         modifying the constraints, calling the CPLEX solver, and then
         interpreting and returning the results.
 
@@ -468,7 +548,7 @@ class MILPCuttingPlane:
             self.LowerModel.linear_constraints.set_rhs([(self.flow_att[i],
                 new_rhs[i]) for i in range(len(self.flow_att))])
 
-        # Solve the MILP
+        # Solve the LP or MILP
         self.LowerModel.solve()
 
         # Set up containers for objective, nonzero flow indicator, and
@@ -524,7 +604,7 @@ class MILPCuttingPlane:
     def end(self):
         """Closes all internal Cplex models.
 
-        This should be called before the MILPCuttingPlane object is discarded.
+        This should be called before the LLCuttingPlane object is discarded.
         """
 
         self.LowerModel.end()
@@ -536,7 +616,8 @@ class MILPCuttingPlane:
 if __name__ == "__main__":
     import network.network as net
     TestNet = net.Network("../../problems/smallnet.min")
-    TestSolver = MILPCuttingPlane(TestNet)
+    TestSolver = LLCuttingPlane(TestNet, 1)
+    PrintSolver = LLCuttingPlane(TestNet, 2)
     #print(TestSolver._lower_solve())
     #print(TestSolver._lower_solve(destroy=[True, False, True, True, False,
     #                                       False, True, False, False]))
@@ -551,6 +632,8 @@ if __name__ == "__main__":
     #print(TestSolver.UpperModel.solution.MIP.get_best_objective())
 
     TestSolver.LowerModel.write("ll_program.lp")
+    PrintSolver.LowerModel.write("ll_lp_program.lp")
     TestSolver.UpperModel.write("ul_program.lp")
 
     TestSolver.end()
+    PrintSolver.end()
