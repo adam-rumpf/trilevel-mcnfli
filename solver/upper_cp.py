@@ -13,12 +13,10 @@ import cplex
 import time
 
 if __name__ == "__main__":
-    import method.milp_cp as milpcp
-    import method.lp_cp as lpcp
+    import method.milp_lp_cp as milpcp
     import method.lp_dual as lpd
 else:
-    import solver.method.milp_cp as milpcp
-    import solver.method.lp_cp as lpcp
+    import solver.method.milp_lp_cp as milpcp
     import solver.method.lp_dual as lpd
 
 #==============================================================================
@@ -68,9 +66,9 @@ class UpperLevel:
 
         # Initialize the chosen type of lower-level solver
         if self.method == 1:
-            self.LowerLevel = milpcp.MILPCuttingPlane(self.Net)
+            self.LowerLevel = milpcp.LLCuttingPlane(self.Net, 1)
         elif self.method == 2:
-            self.LowerLevel = lpcp.LPCuttingPlane(self.Net)
+            self.LowerLevel = milpcp.LLCuttingPlane(self.Net, 2)
         elif self.method == 3:
             self.LowerLevel = lpd.LPDuality(self.Net)
 
@@ -411,9 +409,9 @@ class UpperLevel:
 if __name__ == "__main__":
     import method.network.network as net
     TestNet = net.Network("../problems/smallnet.min")
-    TestSolver = UpperLevel(TestNet, 2)
+    TestSolver = UpperLevel(TestNet, 1)
 
-    print(TestSolver.solve(cutoff=10, lower_cutoff=10))
+    print(TestSolver.solve(cutoff=20, lower_cutoff=10))
     #print(TestSolver.lower_solve([False, False, False, False, True, False,
     #                              False], cutoff=20))
 
