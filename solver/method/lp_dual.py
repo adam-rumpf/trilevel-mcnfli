@@ -68,9 +68,6 @@ class LLDuality:
         self.DualModel.objective.set_sense(
             self.DualModel.objective.sense.maximize)
 
-        parents = [a[0] for a in self.Net.int] # parent arc objects
-        children = [a[1] for a in self.Net.int] # child arc objects
-
         # Note: In order to avoid problems with the behavior of CPLEX with
         # big-M constraints, for each attack variable we also define a
         # continuous penalty variable on [0, M] along with an indicator
@@ -133,17 +130,19 @@ class LLDuality:
             arc_con_vars[a.id].append(pen_vars[i])
             arc_con_coef[a.id].append(1.0)
 
-        ###
-        print([[arc_con_vars[i], arc_con_coef[i]] for i in range(len(self.Net.arcs))])
-        print(arc_con_vars[1])
-        print(arc_con_coef[1])
+        # Interdependent arcs receive an interdependency dual variable term
+        for i in range(len(self.Net.int)):
 
+            ap = self.Net.int[i][0] # parent arc
+            ac = self.Net.int[i][1] # child arc
 
+            # Parent arc constraint
+            arc_con_vars[ap.id].append(int_vars[i])
+            arc_con_coef[ap.id].append(-1.0*ac.bound/ap.bound)
 
-
-
-
-
+            # Child arc constraint
+            arc_con_vars[ac.id].append(int_vars[i])
+            arc_con_coef[ac.id].append(1.0)
 
         # Define a list of attack variable constraint names for defensible arcs
         self.att_con = ["df("+str(a.id)+")" for a in self.Net.def_arcs]
@@ -222,94 +221,37 @@ class LLDuality:
         # Clean up the model
         self.DualModel.cleanup(cplex_epsilon)
 
+        status = 0 # exit code
 
+        # Update constraints based on arc defense vector
+        if len(defend) == len(self.Net.def_arcs):
+            new_rhs = [1 for a in self.Net.def_arcs]
+            for i in range(len(new_rhs)):
+                if defend[i] == True:
+                    new_rhs[i] = 0
+            self.DualModel.linear_constraints.set_rhs([(self.att_con[i],
+                           new_rhs[i]) for i in range(len(self.Net.def_arcs))])
 
+        # Solve the MILP
+        self.DualModel.solve()
 
+        # Get the objective value
+        obj = self.DualModel.solution.get_objective_value()
 
+        # Set unbounded objective value to infinity (CPLEX returns an objective
+        # of 0.0 for unbounded problems)
+        if ((obj == 0.0) and
+            (self.DualModel.solution.is_primal_feasible() == True)):
+            obj = cplex.infinity
+            status = 1
 
+        # Get the solution vector
+        destroy = [False for a in self.Net.att_arcs]
+        for i in range(len(self.Net.att_arcs)):
+            if self.DualModel.solution.get_values(self.att_vars[i]) == 1:
+                destroy[i] = True
 
-
-
-
-
-
-
-#        # Set local variables
-#        obj_ub = -cplex.infinity # objective upper bound (upper-level problem)
-#        obj_lb = cplex.infinity # objective lower bound (lower-level problem)
-#        iteration= 1 # current iteration number
-#        status = 0 # exit code
-#
-#        ###
-#        print("\nInitializing P2-3' cutting plane search.\n")
-#        print("-"*20+" Iteration 0 "+"-"*20)
-#
-#        # Solve the upper-level problem once for the given defense vector
-#        (obj_ub, destroy) = self._upper_solve(defend=defend,
-#                                              cplex_epsilon=cplex_epsilon)
-#
-#        ###
-#        print("rho2 = "+str(obj_ub))
-#
-#        # Find the lower-level response for the given attack vector
-#        (obj_lb, nonzero, feasible) = self._lower_solve(destroy=destroy,
-#                                                   cplex_epsilon=cplex_epsilon)
-#
-#        ###
-#        print("rho1 = "+str(obj_lb))
-#
-#        obj_gap = abs(obj_ub - obj_lb) # current optimality gap
-#
-#        ###
-#        print("Optimality gap = "+str(obj_gap))
-#
-#        #----------------------------------------------------------------------
-#        # Main cutting plane loop begin
-#
-#        while (iteration < cutoff) and (obj_gap > gap):
-#
-#            iteration += 1
-#
-#            ###
-#            print("-"*20+" Iteration "+str(iteration-1)+" "+"-"*20)
-#
-#            # Add a constraint based on the nonzero flow vector
-#            self._upper_add_constraint(obj_lb, nonzero)
-#
-#            # Re-solve the relaxed master problem
-#            (obj_ub, destroy) = self._upper_solve(cplex_epsilon=cplex_epsilon)
-#
-#            ###
-#            print("rho2 = "+str(obj_ub))
-#
-#            # Re-solve the lower-level response
-#            (obj_lb, nonzero, feasible) = self._lower_solve(destroy=destroy,
-#                                                   cplex_epsilon=cplex_epsilon)
-#
-#            ### Include the potential to break here if LL is infeasible.
-#            if feasible == False:
-#                print("Response problem infeasible.")
-#                obj_ub = self.big_m
-#                obj_lb = self.big_m
-#                status = 1
-#                break
-#
-#            ###
-#            print("rho1 = "+str(obj_lb))
-#
-#            # Recalculate the optimality gap
-#            obj_gap = abs(obj_ub - obj_lb)
-#
-#            ###
-#            print("Optimality gap = "+str(obj_gap))
-#
-#            if (iteration >= cutoff) and (obj_gap > gap):
-#                status = 3
-#
-#        # Main cutting plane loop end
-#        #----------------------------------------------------------------------
-
-        return (0, self.attack, 2)###((obj_ub+obj_lb)/2, destroy, status, iteration)
+        return (obj, destroy, status)
 
     #--------------------------------------------------------------------------
     def end(self):
@@ -328,7 +270,7 @@ if __name__ == "__main__":
     TestNet = net.Network("../../problems/smallnet.min")
     TestSolver = LLDuality(TestNet)
 
-    print(TestSolver.solve([False, False, False, False, True, False, False]))
+    print(TestSolver.solve([False, True, True, False, True, False, False]))
 
     TestSolver.DualModel.write("dual_program.lp")
 
