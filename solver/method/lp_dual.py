@@ -9,7 +9,7 @@ information to define the trilevel network interdiction game based on the LP
 relaxation of the binary interdependence model.
 """
 
-### Currently consits entirely of placeholders.
+import cplex
 
 #==============================================================================
 class LLDuality:
@@ -535,7 +535,6 @@ if __name__ == "__main__":
     print(TestSolver.solve([False, False, False, False, True, False, False],
                            cutoff=20))
 
-    TestSolver.LowerModel.write("ll_program.lp")
-    TestSolver.UpperModel.write("ul_program.lp")
+    TestSolver.DualModel.write("dual_program.lp")
 
     TestSolver.end()
