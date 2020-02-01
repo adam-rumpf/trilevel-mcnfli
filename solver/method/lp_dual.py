@@ -68,21 +68,6 @@ class LLDuality:
         self.DualModel.objective.set_sense(
             self.DualModel.objective.sense.maximize)
 
-        ###
-        # Duality model:
-        # binary attack decision psi for every destructible arc
-        # free node potential lambda for each node
-        # nonnegative interdependency variable mu for each interdependency
-        # nonnegative flow bound variable eta for each destructible arc
-        # Objective:
-        # Sum of b_i lambda_i over all nodes, minus sum of u_ij eta_ij over all arcs
-        # Constraints:
-        # Each arc ij has a basic constraint of the form c_ij - lambda_i + lambda_j + eta_ij >= 0
-        # Additional terms are added depending on the type of arc.
-        # If destructible, add M psi_ij
-        # If a parent, add -(u_kl/u_ij) mu_ij^kl
-        # If a child, add mu_kl^ij
-
         parents = [a[0] for a in self.Net.int] # parent arc objects
         children = [a[1] for a in self.Net.int] # child arc objects
 
@@ -128,7 +113,30 @@ class LLDuality:
                                     lb=[0.0 for a in self.Net.arcs],
                                     ub=[cplex.infinity for a in self.Net.arcs])
 
-        ### Note: We will need some indicator constraints to force the penalty terms to be zero when the decision is 0.
+        # Define a list of constraint names for all arcs
+        arc_con = ["ac("+str(a.id)+")" for a in self.Net.arcs]
+
+        # Create a list of variables and coefficients for each arc constraint.
+        # All arc constraints include the node potentials of the endpoints and
+        # the arc bound dual variable. Destructible arcs also receive a penalty
+        # term while interdependent arcs also receive interdependency dual
+        # variable terms.
+
+        # Common base constrants
+        arc_con_vars = [[node_vars[a.tail.id], node_vars[a.head.id]]
+                        for a in self.Net.arcs]
+        arc_con_coef = [[-1.0, 1.0] for a in self.Net.arcs]
+
+        # Destructible arcs receive a penalty term
+        for i in range(len(self.Net.att_arcs)):
+            a = self.Net.att_arcs[i]
+            arc_con_vars[a.id].append(pen_vars[i])
+            arc_con_coef[a.id].append(1.0)
+
+        ###
+        print([[arc_con_vars[i], arc_con_coef[i]] for i in range(len(self.Net.arcs))])
+        print(arc_con_vars[1])
+        print(arc_con_coef[1])
 
 
 
@@ -137,50 +145,52 @@ class LLDuality:
 
 
 
+        # Define a list of attack variable constraint names for defensible arcs
+        self.att_con = ["df("+str(a.id)+")" for a in self.Net.def_arcs]
 
+        # Define a list of penalty variable indicator constraint names
+        pen_con = ["ap("+str(a.id)+")" for a in self.Net.att_arcs]
 
+        # Define sense string for attack constraints (all <=)
+        att_sense = "L"*len(self.Net.def_arcs)
 
+        # Define attack constraint righthand sides (all 1)
+        att_rhs = [1 for a in self.Net.def_arcs]
 
+        # Define attack constraints for each arc (initially just bounds)
+        att_expr = [[["at("+str(a.id)+")"], [1]] for a in self.Net.def_arcs]
 
+        # Define attack constraints to limit the total number of attacks
+        att_lim_expr = [[[v for v in self.att_vars],
+                         [1 for v in self.att_vars]]]
 
-#        # Define a list of attack variable constraint names for defensible arcs
-#        self.att_con = ["df("+str(a.id)+")" for a in self.Net.def_arcs]
-#
-#        # Define a list of penalty variable indicator constraint names
-#        pen_con = ["ap("+str(a.id)+")" for a in self.Net.att_arcs]
-#
-#        # Define sense string for attack constraints (all <=)
-#        att_sense = "L"*len(self.Net.def_arcs)
-#
-#        # Define attack constraint righthand sides (all 1)
-#        att_rhs = [1 for a in self.Net.def_arcs]
-#
-#        # Define attack constraints for each arc (initially just bounds)
-#        att_expr = [[["at("+str(a.id)+")"], [1]] for a in self.Net.def_arcs]
-#
-#        # Define attack constraints to limit the total number of attacks
-#        att_lim_expr = [[[v for v in self.att_vars],
-#                         [1 for v in self.att_vars]]]
-#
-#        # Define penalty variable constraints to limit value when activated
-#        pen_expr = [[[v], [1]] for v in self.pen_vars]
-#
-#        # Add attack constraints to Cplex object
-#        self.UpperModel.linear_constraints.add(names=self.att_con,
-#                                               lin_expr=att_expr,
-#                                               senses=att_sense, rhs=att_rhs)
-#        self.UpperModel.linear_constraints.add(names=["ab"],
-#                                               lin_expr=att_lim_expr,
-#                                               senses=["L"],
-#                                               rhs=[self.Net.att_limit])
-#
-#        # Add penalty variable indicator constraints to Cplex object
-#        self.UpperModel.indicator_constraints.add_batch(name=pen_con,
-#                                       indvar=self.att_vars,
-#                                       complemented=[1 for a in self.att_vars],
-#                                       lin_expr=pen_expr,
-#                                       sense=["L" for a in self.att_vars],
-#                                       rhs=[0.0 for a in self.att_vars])
+        # Define penalty variable constraints to limit value when activated
+        pen_expr = [[[v], [1]] for v in pen_vars]
+
+        # Add attack constraints to Cplex object
+        self.DualModel.linear_constraints.add(names=self.att_con,
+                                              lin_expr=att_expr,
+                                              senses=att_sense, rhs=att_rhs)
+        self.DualModel.linear_constraints.add(names=["ab"],
+                                              lin_expr=att_lim_expr,
+                                              senses=["L"],
+                                              rhs=[self.Net.att_limit])
+
+        # Add penalty variable indicator constraints to Cplex object
+        self.DualModel.indicator_constraints.add_batch(name=pen_con,
+                                       indvar=self.att_vars,
+                                       complemented=[1 for a in self.att_vars],
+                                       lin_expr=pen_expr,
+                                       sense=["L" for a in self.att_vars],
+                                       rhs=[0.0 for a in self.att_vars])
+
+        # Add arc constraints to Cplex object
+        self.DualModel.linear_constraints.add(names=arc_con,
+                                          lin_expr=[[arc_con_vars[i],
+                                                     arc_con_coef[i]]
+                                          for i in range(len(self.Net.arcs))],
+                                          senses="G"*len(self.Net.arcs),
+                                          rhs=[-a.cost for a in self.Net.arcs])
 
     #--------------------------------------------------------------------------
     def solve(self, defend, cplex_epsilon=0.001):
