@@ -70,7 +70,7 @@ class UpperLevel:
         elif self.method == 2:
             self.LowerLevel = milpcp.LLCuttingPlane(self.Net, 2)
         elif self.method == 3:
-            self.LowerLevel = lpd.LPDuality(self.Net)
+            self.LowerLevel = lpd.LLDuality(self.Net)
 
         # Initialize Cplex object
         self._cplex_setup()
@@ -409,7 +409,7 @@ class UpperLevel:
 if __name__ == "__main__":
     import method.network.network as net
     TestNet = net.Network("../problems/smallnet.min")
-    TestSolver = UpperLevel(TestNet, 1)
+    TestSolver = UpperLevel(TestNet, 3)
 
     print(TestSolver.solve(cutoff=20, lower_cutoff=10))
     #print(TestSolver.lower_solve([False, False, False, False, True, False,
