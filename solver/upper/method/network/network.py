@@ -10,10 +10,6 @@ features are written under the assumption that the input file is being read
 line-by-line.
 """
 
-### To do (marked with "###" in comments below):
-###   Include support for the conversions requires to have nodes as parents
-###   (see C++ script; it just requires introducing a few more constraints).
-
 #==============================================================================
 class Network:
     """A class for representing a flow network defined by a NETGEN file.
@@ -53,7 +49,7 @@ class Network:
         # Initialize constants
         self.def_limit = 0 # number of allowed arc defenses
         self.att_limit = 0 # number of allowed arc attacks
-        self.parent_type = 0 # 0 for arc parents, 1 as sink node parents
+        self.parent_type = 0 # 0 for sink node parents, 1 for arc parents
 
         # Read input file
         self._read_netgen(file)
@@ -95,7 +91,7 @@ class Network:
                     # We always assume that the sense is minimization
 
                     ls = line.split()
-                    if ls[5] == 'n':
+                    if ls[5] == 'a':
                         self.parent_type = 1
                     self.def_limit = int(ls[6])
                     self.att_limit = int(ls[7])
@@ -128,8 +124,6 @@ class Network:
                 # Interdependency
                 elif line[0] == 'i':
                     # i parent child
-
-                    ### We assume for now that arcs are parents. Fix later.
 
                     ls = line.split()
                     self.int.append((self.arcs[int(ls[1])-1],

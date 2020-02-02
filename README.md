@@ -33,7 +33,7 @@ The result summary file `summary.txt` includes the following tab-separated colum
 * `nodes`: Number of nodes in the input network.
 * `arcs`: Number of arcs in the input network.
 * `int`: Number of interdependencies in the input network.
-* `type`: Type of interdependency (`a` for arc parents, `n` for node parents).
+* `type`: Type of interdependency (`0` for arc parents, `1` for node parents).
 * `defense`: Number of arcs that may be defended.
 * `attack`: Number of arcs that may be attacked.
 * `milp_obj_init`: Initial objective value of the binary interdependence model before any attacks are made.

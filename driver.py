@@ -36,10 +36,6 @@ are arranged as follows:
     [19] Objective value of MILP game solved with LP defensive decisions
 """
 
-### Note: The current version of this program is equipped only to handle networks
-### with parent arcs, since parent nodes require some restructuring when the
-### network object is created.
-
 import gc
 import random
 
@@ -287,9 +283,8 @@ def _write_sol(file_name, trial_name, vector, overwrite=False):
 
     Accepts the following optional keyword arguments:
         overwrite -- Selects whether to overwrite the existing output file. If
-            True, creates a new file with a new comment line and deletes any
-            existing copy. If False, appends line to an existing file. Defaults
-            to False.
+            True, creates a new file and deletes any existing copy. If False,
+            appends line to an existing file. Defaults to False.
     """
 
     # Set file writing mode based on ovewrite option
