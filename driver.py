@@ -118,9 +118,24 @@ def single_trial(input_file, output_directory, overwrite=False):
         # MILP cutting plane solve
         elif i == 2:
 
-            sol = [0, 1, 1, 0]###
+            # Initialize temporary solver
+            Model = TrialSolver(input_file)
+
+            # Solve trilevel model
+            (obj, sol, _, times, itera) = Model.solve_milp_cutting_plane()
+
+            # Record trial statistics
+            results[9] = times[0]
+            results[10] = itera[0]
+            results[11] = itera[1]
+            results[12] = obj
 
             # Write solution file
+            for i in range(len(sol)):
+                if sol[i] == True:
+                    sol[i] = 1
+                else:
+                    sol[i] = 0
             _write_sol(output_directory+"milp_cp_sol.txt", input_file, sol,
                        overwrite=overwrite)
 
