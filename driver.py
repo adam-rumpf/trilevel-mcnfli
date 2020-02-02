@@ -208,6 +208,43 @@ def single_trial(input_file, output_directory, overwrite=False):
     _write_summary(output_directory+"summary.txt", line, overwrite=overwrite)
 
 #==============================================================================
+def trial_list(input_list, output_directory, overwrite=False):
+    """Processes a list of trial instances.
+
+    Runs a collection of tests on a list of trial instances and writes the
+    results to a collection of output files. This works by calling the single
+    trial processer iteratively for every file on the list.
+
+    Requires the following positional arguments:
+        input_list -- Reference to a list of files to process. The list should
+            include a complete file path on each line.
+        output_directory -- Reference to an output directory, as a destination
+            for the output files.
+
+    Accepts the following optional keyword arguments:
+        overwrite -- Selects whether to overwrite any existing output files in
+            the output directory. Defaults to False. If True, any existing
+            output files will be overwritten before beginning the trial set.
+            All remaining trials in the set will be added to the existing
+            output files.
+    """
+
+    over = overwrite # initial overwrite setting
+
+    # Read input file into a list
+    trials = []
+    with open(input_list, 'r') as f:
+        for line in f:
+            trials.append(line[:-1])
+
+    # Process each trial on the list
+    for i in range(len(trials)):
+        single_trial(trials[i], output_directory, overwrite=over)
+        over = False # stop overwriting after first trial
+
+    print("\nAll trials processed!")
+
+#==============================================================================
 def _write_summary(file_name, line, overwrite=False, end=None):
     """Writes a single line to the summary output file.
 
@@ -295,6 +332,8 @@ def refresh_files(directory):
 ###############################################################################
 ### For testing (delete later)
 
-single_trial("problems/smallnet.min", "results/", overwrite=True)
+#single_trial("problems/smallnet.min", "results/", overwrite=True)
 
 #refresh_files("results/")
+
+trial_list("trial_list.txt", "results/", overwrite=True)
