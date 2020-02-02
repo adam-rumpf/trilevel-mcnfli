@@ -328,7 +328,7 @@ class LLCuttingPlane:
                             self.flow_vars[intd[1].id]]
 
                 # Set coefficients
-                coef = [-(1.0*intd[0].bound/intd[1].bound), 1.0]
+                coef = [-(1.0*intd[1].bound/intd[0].bound), 1.0]
 
                 # Update constraint list
                 flow_int_expr[i] = [var_pair, coef]
