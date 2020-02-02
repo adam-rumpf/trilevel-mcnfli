@@ -25,7 +25,7 @@ class LLDuality:
     """
 
     #--------------------------------------------------------------------------
-    def __init__(self, net_in):
+    def __init__(self, net_in, big_m=1.0e10):
         """LP duality solution object constructor.
 
         Ininitializes the Cplex objects associated with the lower-level
@@ -34,9 +34,14 @@ class LLDuality:
         Requires the following positional arguments:
             net_in -- Reference to the Network object that defines the problem
                 instance.
+
+        Accepts the following optional keyword arguments:
+            big_m -- Large constant for use in bounding certain variables in
+                the CPLEX program. Defaults to 1.0e10.
         """
 
         self.Net = net_in # set reference to network object
+        self.big_m = big_m # large constant bound
 
         # Initialize attack vector and related lists
         self.attack = [False for a in self.Net.att_arcs]
@@ -91,7 +96,7 @@ class LLDuality:
         # Add attack decision penalty variables to Cplex object
         self.DualModel.variables.add(names=pen_vars,
                                 lb=[0.0 for a in self.Net.att_arcs],
-                                ub=[cplex.infinity for a in self.Net.att_arcs])
+                                ub=[self.big_m for a in self.Net.att_arcs])
 
         # Add node potential dual variables to Cplex object
         self.DualModel.variables.add(obj=[n.supply for n in self.Net.nodes],
@@ -240,7 +245,7 @@ class LLDuality:
 
         # Set unbounded objective value to infinity (CPLEX returns an objective
         # of 0.0 for unbounded problems)
-        if ((obj == 0.0) and
+        if ((obj == 0.0 or obj >= 0.1*self.big_m) and
             (self.DualModel.solution.is_primal_feasible() == True)):
             obj = cplex.infinity
             status = 1
@@ -268,15 +273,15 @@ class LLDuality:
 if __name__ == "__main__":
     import network.network as net
     TestNet = net.Network("../../problems/smallnet.min")
-    TestSolver = LLDuality(TestNet)
+    TestSolver = LLDuality(TestNet, big_m=1.0e10)
 
     print(TestSolver.solve([False, True, True, False, True, False, False]))
     #print(TestSolver.solve([False, False, False, False, False, False, False]))
 
-    nms = TestSolver.DualModel.variables.get_names()
-    val = TestSolver.DualModel.solution.get_values()
-    for i in range(len(nms)):
-        print(str(nms[i])+" = "+str(val[i]))
+    #nms = TestSolver.DualModel.variables.get_names()
+    #val = TestSolver.DualModel.solution.get_values()
+    #for i in range(len(nms)):
+    #    print(str(nms[i])+" = "+str(val[i]))
 
     TestSolver.DualModel.write("dual_program.lp")
 
