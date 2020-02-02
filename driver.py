@@ -40,7 +40,9 @@ are arranged as follows:
 ### with parent arcs, since parent nodes require some restructuring when the
 ### network object is created.
 
+import gc
 import random
+
 import solver
 
 #==============================================================================
@@ -67,19 +69,51 @@ def single_trial(input_file, output_directory, overwrite=False):
     results[0] = input_file
 
     # Process trials in a semirandomized order in a loop
-    order = [i for i in range(5)]
+    order = [i for i in range(2, 5)]
     random.shuffle(order)
+    order = [0, 1] + order
 
     # Main trial loop
     for i in order:
 
-        # Preliminary MILP solve
-        if i == 0:
-            pass
+        # Collect garbage
+        gc.collect()
 
-        # Defenseless MILP solve
+        # Preliminary MILP solve (always first)
+        if i == 0:
+
+            # Initialize temporary solver
+            Model = TrialSolver(input_file)
+
+            # Get network statistics
+            results[1] = len(Model.Net.nodes)
+            results[2] = len(Model.Net.arcs)
+            results[3] = len(Model.Net.int)
+            results[4] = Model.Net.parent_type
+            results[5] = Model.Net.def_limit
+            results[6] = Model.Net.att_limit
+
+            # Solve initial MILP
+            (obj, feas) = Model.solve_milp_initial()
+
+            # Break if the model is infesible
+            if feas != 0:
+                break
+
+            # Record objective
+            results[7] = obj
+
+        # Defenseless MILP solve (always second)
         elif i == 1:
-            pass
+
+            # Initialize temporary solver
+            Model = TrialSolver(input_file)
+
+            # Solve bilevel submodel with no defense
+            (obj, _, _, _) = Model.solve_milp_defend([])
+
+            # Record objective
+            results[8] = obj
 
         # MILP cutting plane solve
         elif i == 2:
@@ -194,12 +228,5 @@ def _write_sol(file_name, trial_name, vector, overwrite=False):
 # file, nodes, arcs, int, type, defense, attack, milp_obj_init, milp_obj_nodef,
 # milp_cp_time, milp_cp_iter, milp_cp_iter_lower, milp_obj lp_cp_time,
 # lp_cp_iter, lp_cp_iter_lower, lp_dual_time, lp_dual_iter, lp_obj, lp_milp_obj
-# milp_cp_sol.txt
-# file, [sol]
-# lp_cp_sol.txt
-# file, [sol]
-# lp_dual_sol.txt
-# file, [sol]
 
 single_trial("problems/smallnet.min", "results/", overwrite=True)
-#_write_summary("results/test.txt", "Test string...", overwrite=True)

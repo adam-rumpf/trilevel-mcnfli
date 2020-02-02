@@ -210,6 +210,8 @@ class TrialSolver:
                     0: Successful exit with finite objective value.
                     1: Successful exit with infinite objective value.
                     2: Exit due to error.
+            iterations -- Number of iterations of the lower-level algorithm's
+                cutting plane loop (0 if not applicable).
         """
 
         # Collect garbage
@@ -247,17 +249,17 @@ class TrialSolver:
         Milp = milpcp.LLCuttingPlane(self.Net, 1)
 
         # Get lower level solution with no attacks made
-        (obj, _, status) = Milp.lower_solve([])
+        (obj, _, feas) = Milp.lower_solve([])
 
-        feasible = 0
-        if status == False:
-            feasible = 1
+        status = 0
+        if feas == False:
+            status = 1
 
         # End solver
         Milp.end()
 
         # Return solution
-        return (obj, feasible)
+        return (obj, status)
 
 ###############################################################################
 ### For testing (delete later)

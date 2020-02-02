@@ -53,6 +53,7 @@ class Network:
         # Initialize constants
         self.def_limit = 0 # number of allowed arc defenses
         self.att_limit = 0 # number of allowed arc attacks
+        self.parent_type = 0 # 0 for arc parents, 1 as sink node parents
 
         # Read input file
         self._read_netgen(file)
@@ -93,10 +94,9 @@ class Network:
                     # p sense #nodes #arcs #int int_type #defenses #attacks
                     # We always assume that the sense is minimization
 
-                    ### We assume for now that arcs are parents. Fix later.
-
                     ls = line.split()
-                    # ls[5] is the parent type
+                    if ls[5] == 'n':
+                        self.parent_type = 1
                     self.def_limit = int(ls[6])
                     self.att_limit = int(ls[7])
 
