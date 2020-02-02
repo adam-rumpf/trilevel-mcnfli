@@ -615,7 +615,7 @@ class LLCuttingPlane:
 
 if __name__ == "__main__":
     import network.network as net
-    TestNet = net.Network("../../problems/smallnet.min")
+    TestNet = net.Network("../../../problems/smallnet.min")
     TestSolver = LLCuttingPlane(TestNet, 1)
     PrintSolver = LLCuttingPlane(TestNet, 2)
     #print(TestSolver.lower_solve())

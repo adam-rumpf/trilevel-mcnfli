@@ -23,6 +23,8 @@ This module includes a variety of submodules for running various aspects of the 
 
 The solution algorithm driver, `solver.py`, requires a reference to a modified NETGEN `.min` file to define a problem instance. The main driver, `driver.py`, requires a reference to a folder of `.min` files and uses `solver.py` to process each of them in turn as a batch.
 
+Note: The current version of this module includes only support for the arc parent interdependency model.
+
 ## Output Format
 
 The main driver, `driver.py`, writes the results of the trials to a collection of output files in a specified folder. All output files include a row for each trial.

@@ -416,7 +416,7 @@ class UpperLevel:
 
 if __name__ == "__main__":
     import method.network.network as net
-    TestNet = net.Network("../problems/smallnet.min")
+    TestNet = net.Network("../../problems/smallnet.min")
     TestSolver = UpperLevel(TestNet, 3)
 
     print(TestSolver.solve(cutoff=20, lower_cutoff=10))

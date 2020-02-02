@@ -10,10 +10,6 @@ features are written under the assumption that the input file is being read
 line-by-line.
 """
 
-### To do (marked with "###" in comments below):
-###   Include support for the conversions requires to have nodes as parents
-###   (see C++ script; it just requires introducing a few more constraints).
-
 #==============================================================================
 class Network:
     """A class for representing a flow network defined by a NETGEN file.
@@ -129,7 +125,7 @@ class Network:
                 elif line[0] == 'i':
                     # i parent child
 
-                    ### We assume for now that arcs are parents. Fix later.
+                    ### We assume for now that arcs are parents.
 
                     ls = line.split()
                     self.int.append((self.arcs[int(ls[1])-1],

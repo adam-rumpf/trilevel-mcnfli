@@ -36,10 +36,6 @@ are arranged as follows:
     [19] Objective value of MILP game solved with LP defensive decisions
 """
 
-### Note: The current version of this program is equipped only to handle networks
-### with parent arcs, since parent nodes require some restructuring when the
-### network object is created.
-
 import gc
 import random
 
