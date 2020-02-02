@@ -25,9 +25,9 @@ import solver
 # files.
 # Include the following outputs (also include an option to overwrite):
 # summary.txt
-# file, nodes, arcs, int, type, defense, attack, milp_cp_time, milp_cp_iter,
-# milp_cp_iter_lower, milp_obj lp_cp_time, lp_cp_iter, lp_cp_iter_lower,
-# lp_dual_time, lp_dual_iter, lp_obj, lp_milp_obj
+# file, nodes, arcs, int, type, defense, attack, milp_obj_init, milp_obj_nodef,
+# milp_cp_time, milp_cp_iter, milp_cp_iter_lower, milp_obj lp_cp_time,
+# lp_cp_iter, lp_cp_iter_lower, lp_dual_time, lp_dual_iter, lp_obj, lp_milp_obj
 # milp_cp_sol.txt
 # file, [sol]
 # lp_cp_sol.txt

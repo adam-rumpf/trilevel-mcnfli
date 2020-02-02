@@ -35,6 +35,8 @@ The result summary file `summary.txt` includes the following tab-separated colum
 * `type`: Type of interdependency (`a` for arc parents, `n` for node parents).
 * `defense`: Number of arcs that may be defended.
 * `attack`: Number of arcs that may be attacked.
+* `milp_obj_init`: Initial objective value of the binary interdependence model before any attacks are made.
+* `milp_obj_nodef`: Objective value of the binary interdependence model if it is attacked with no defensive decisions made.
 * `milp_cp_time`: Total time spent to solve binary interdependence model via cutting plane.
 * `milp_cp_iter`: Number of cutting plane iterations required for the overall binary interdependence model.
 * `milp_cp_iter_lower`: Number of cutting plane iterations required for the lower bilevel binary interdependence model.
