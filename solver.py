@@ -12,6 +12,7 @@ import gc
 import time
 
 import solver.upper_cp as ucp
+import solver.method.milp_lp_cp as milpcp
 import solver.method.network.network as net
 
 #==============================================================================
@@ -226,15 +227,48 @@ class TrialSolver:
         # Return solution
         return out
 
+    #--------------------------------------------------------------------------
+    def solve_milp_initial(self):
+        """Calculates the initial MILP solution.
+
+        Calculates the solution of the lower-level binary interdependency
+        model with no defensive or attack decisions made.
+
+        Returns a tuple containing the following elements:
+            objective -- Objective value of the lower-level bilevel program.
+            status -- Numerical code to describe the results of the solution
+                process, including the following:
+                    0: Successful exit with feasible MILP.
+                    1: Successful exit with infeasible MILP.
+                    2: Exit due to error.
+        """
+
+        # Initialize a temporary lower-level solver object
+        Milp = milpcp.LLCuttingPlane(self.Net, 1)
+
+        # Get lower level solution with no attacks made
+        (obj, _, status) = Milp.lower_solve([])
+
+        feasible = 0
+        if status == False:
+            feasible = 1
+
+        # End solver
+        Milp.end()
+
+        # Return solution
+        return (obj, feasible)
+
 ###############################################################################
 ### For testing (delete later)
 
 if __name__ == "__main__":
     TestSolver = TrialSolver("problems/smallnet.min")
 
-    print(TestSolver.solve_milp_cutting_plane())
-    print(TestSolver.solve_lp_cutting_plane())
-    print(TestSolver.last_defense)
-    print(TestSolver.solve_milp_defend(TestSolver.last_defense))
-    print(TestSolver.solve_milp_defend([False
-                                        for a in TestSolver.Net.def_arcs]))
+    #print(TestSolver.solve_milp_cutting_plane())
+    #print(TestSolver.solve_lp_cutting_plane())
+    #print(TestSolver.last_defense)
+    #print(TestSolver.solve_milp_defend(TestSolver.last_defense))
+    #print(TestSolver.solve_milp_defend([False
+    #                                    for a in TestSolver.Net.def_arcs]))
+    print(TestSolver.solve_milp_initial())

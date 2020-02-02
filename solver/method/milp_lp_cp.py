@@ -400,7 +400,7 @@ class LLCuttingPlane:
         print("rho2 = "+str(obj_ub))
 
         # Find the lower-level response for the given attack vector
-        (obj_lb, nonzero, feasible) = self._lower_solve(destroy=destroy,
+        (obj_lb, nonzero, feasible) = self.lower_solve(destroy=destroy,
                                                    cplex_epsilon=cplex_epsilon)
 
         ###
@@ -431,7 +431,7 @@ class LLCuttingPlane:
             print("rho2 = "+str(obj_ub))
 
             # Re-solve the lower-level response
-            (obj_lb, nonzero, feasible) = self._lower_solve(destroy=destroy,
+            (obj_lb, nonzero, feasible) = self.lower_solve(destroy=destroy,
                                                    cplex_epsilon=cplex_epsilon)
 
             ### Include the potential to break here if LL is infeasible.
@@ -513,7 +513,7 @@ class LLCuttingPlane:
         return (obj, destroy)
 
     #--------------------------------------------------------------------------
-    def _lower_solve(self, destroy=[], cplex_epsilon=0.001):
+    def lower_solve(self, destroy=[], cplex_epsilon=0.001):
         """Solves the lower-level interdependent network flows LP or MILP.
 
         Uses the lower-level Cplex object to solve the LP or MILP defined by
@@ -618,8 +618,8 @@ if __name__ == "__main__":
     TestNet = net.Network("../../problems/smallnet.min")
     TestSolver = LLCuttingPlane(TestNet, 1)
     PrintSolver = LLCuttingPlane(TestNet, 2)
-    #print(TestSolver._lower_solve())
-    #print(TestSolver._lower_solve(destroy=[True, False, True, True, False,
+    #print(TestSolver.lower_solve())
+    #print(TestSolver.lower_solve(destroy=[True, False, True, True, False,
     #                                       False, True, False, False]))
     #print(TestSolver._upper_solve(defend=[False, True, False, False, True,
     #                                      False, True]))
