@@ -71,7 +71,10 @@ def single_trial(input_file, output_directory, overwrite=False):
     # Process trials in a semirandomized order in a loop
     order = [i for i in range(2, 5)]
     random.shuffle(order)
-    order = [0, 1] + order
+    order = [0, 1] + order + [5]
+
+    # Initialize LP defensive decisions
+    lp_sol = []
 
     # Main trial loop
     for i in order:
@@ -142,20 +145,61 @@ def single_trial(input_file, output_directory, overwrite=False):
         # LP cutting plane solve
         elif i == 3:
 
-            sol = [0, 1, 1, 0]###
+            # Initialize temporary solver
+            Model = sl.TrialSolver(input_file)
+
+            # Solve trilevel model
+            (obj, sol, _, times, itera) = Model.solve_lp_cutting_plane()
+            lp_sol = sol # save solution for comparison with MILP
+
+            # Record trial statistics
+            results[13] = times[0]
+            results[14] = itera[0]
+            results[15] = itera[1]
+            results[18] = obj
 
             # Write solution file
+            for i in range(len(sol)):
+                if sol[i] == True:
+                    sol[i] = 1
+                else:
+                    sol[i] = 0
             _write_sol(output_directory+"lp_cp_sol.txt", input_file, sol,
                        overwrite=overwrite)
 
         # LP duality solve
         elif i == 4:
 
-            sol = [0, 1, 1, 0]###
+            # Initialize temporary solver
+            Model = sl.TrialSolver(input_file)
+
+            # Solve trilevel model
+            (_, sol, _, times, itera) = Model.solve_lp_duality()
+
+            # Record trial statistics
+            results[16] = times[0]
+            results[17] = itera[0]
 
             # Write solution file
+            for i in range(len(sol)):
+                if sol[i] == True:
+                    sol[i] = 1
+                else:
+                    sol[i] = 0
             _write_sol(output_directory+"lp_dual_sol.txt", input_file, sol,
                        overwrite=overwrite)
+
+        # Relaxed solution optimality gap solve (always last)
+        elif i == 5:
+
+            # Initialize temporary solver
+            Model = sl.TrialSolver(input_file)
+
+            # Solve bilevel model with LP defense
+            (obj, _, _, _) = Model.solve_milp_defend(lp_sol)
+
+            # Record objective
+            results[19] = obj
 
     # Write summary file
     line = str(results[0])
@@ -164,7 +208,7 @@ def single_trial(input_file, output_directory, overwrite=False):
     _write_summary(output_directory+"summary.txt", line, overwrite=overwrite)
 
 #==============================================================================
-def _write_summary(file_name, line, overwrite=False):
+def _write_summary(file_name, line, overwrite=False, end=None):
     """Writes a single line to the summary output file.
 
     Requires the following positional arguments:
@@ -176,6 +220,7 @@ def _write_summary(file_name, line, overwrite=False):
             True, creates a new file with a new comment line and deletes any
             existing copy. If False, appends line to an existing file. Defaults
             to False.
+        end -- Overrides the end-of-line character when printing lines.
     """
 
     # If overwriting, set file writing mode and write comment lines
@@ -189,7 +234,10 @@ def _write_summary(file_name, line, overwrite=False):
 
     # Print new line
     with open(file_name, mode='a') as f:
-        print(line, file=f)
+        if end == None:
+            print(line, file=f)
+        else:
+            print(line, file=f, end=end)
 
 #==============================================================================
 def _write_sol(file_name, trial_name, vector, overwrite=False):
@@ -213,35 +261,40 @@ def _write_sol(file_name, trial_name, vector, overwrite=False):
         m = 'w'
 
     # Convert solution to a string
-    line = trial_name + "\t" + str(vector[0])
-    for i in range(1, len(vector)):
-        line += "\t" + str(vector[i])
+    if len(vector) > 0:
+        line = trial_name + "\t" + str(vector[0])
+        for i in range(1, len(vector)):
+            line += "\t" + str(vector[i])
+    else:
+        line = ""
 
     # Print new line
     with open(file_name, mode=m) as f:
         print(line, file=f)
 
+#==============================================================================
+def refresh_files(directory):
+    """Generates empty output files in an output directory.
+
+    Generates (and overwrites) the summary file and method solution files in a
+    specified directory.
+
+    Requires the following positional arguments:
+        directory -- Name of output directory.
+    """
+
+    # Write empty files
+    _write_summary(directory+"summary.txt", "", overwrite=True, end="")
+    with open(directory+"milp_cp_sol.txt", 'w'):
+        pass
+    with open(directory+"lp_cp_sol.txt", 'w'):
+        pass
+    with open(directory+"lp_dual_sol.txt", 'w'):
+        pass
+
 ###############################################################################
 ### For testing (delete later)
 
-#single_trial("problems/smallnet.min", "results/")
-
-### This main driver should instantiate a different TrialSolver object for each
-### trial instance, calling each of its methods one-at-a-time.
-
-# Handle all of the file accessing and writing. Refer to an external list with
-# the names of all files to be read, since this list can have elements
-# removed from it as trials are completed
-
-# The main solver method should ask for a .txt file which lists a set of
-# NETGEN files. The driver then calls solver.py for each of the listed files in
-# turn, using all of its solver methods to apply each of the solution
-# algorithms, and then printing the results to a specified set of output .txt
-# files.
-# Include the following outputs (also include an option to overwrite):
-# summary.txt
-# file, nodes, arcs, int, type, defense, attack, milp_obj_init, milp_obj_nodef,
-# milp_cp_time, milp_cp_iter, milp_cp_iter_lower, milp_obj lp_cp_time,
-# lp_cp_iter, lp_cp_iter_lower, lp_dual_time, lp_dual_iter, lp_obj, lp_milp_obj
-
 single_trial("problems/smallnet.min", "results/", overwrite=True)
+
+#refresh_files("results/")
