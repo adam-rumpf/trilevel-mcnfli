@@ -209,10 +209,9 @@ class LLCuttingPlane:
         flow_con = ["c("+str(n.id)+")" for n in self.Net.nodes]
         self.flow_att = ["a("+str(a.id)+")" for a in self.Net.att_arcs]
 
-        # Define sense strings for common constraints (== for flow
-        # conservation, <= for all others)
-        flow_con_sense = "E"*len(flow_con)
+        # Define sense strings for common constraints
         flow_att_sense = "L"*len(self.flow_att)
+        flow_con_sense = ["E" for i in range(len(flow_con))]
 
         # Define common constraint righthand sides
         flow_con_rhs = [n.supply for n in self.Net.nodes]
@@ -239,6 +238,16 @@ class LLCuttingPlane:
         flow_att_expr = [[[self.flow_vars[a.id]], [1.0]]
                          for a in self.Net.att_arcs]
 
+        # If using nodes as parents, relax supply constraints
+        if self.Net.parent_type == 0:
+            flow_con_lb = []
+            flow_con_lb_expr = []
+            for i in range(len(flow_con_sense)):
+                if self.Net.nodes[i].supply > 0:
+                    flow_con_sense[i] = "L"
+                    flow_con_lb.append("lb"+flow_con[i])
+                    flow_con_lb_expr.append(flow_con_expr[i])
+
         # Add common constraints to Cplex object
         self.LowerModel.linear_constraints.add(names=flow_con,
                                                lin_expr=flow_con_expr,
@@ -248,6 +257,12 @@ class LLCuttingPlane:
                                                lin_expr=flow_att_expr,
                                                senses=flow_att_sense,
                                                rhs=flow_att_rhs)
+        if self.Net.parent_type == 0:
+            self.LowerModel.linear_constraints.add(names=flow_con_lb,
+                                                   lin_expr=flow_con_lb_expr,
+                                                   senses="G"*len(flow_con_lb),
+                                                   rhs=[0.0 for i in
+                                                      range(len(flow_con_lb))])
 
         # Add interdependencies for chosen model type
         if mode == 1:
@@ -615,8 +630,9 @@ class LLCuttingPlane:
 
 if __name__ == "__main__":
     import network.network as net
-    TestNet = net.Network("../../problems/smallnet.min")
-    TestSolver = LLCuttingPlane(TestNet, 1)
+    TestNet = net.Network("../../../problems/smallnet.min")
+    #TestNet = net.Network("../../../problems/smallnet_node.min")
+    TestSolver = LLCuttingPlane(TestNet, 2)
     PrintSolver = LLCuttingPlane(TestNet, 2)
     #print(TestSolver.lower_solve())
     #print(TestSolver.lower_solve(destroy=[True, False, True, True, False,

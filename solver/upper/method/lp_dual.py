@@ -278,7 +278,7 @@ class LLDuality:
 
 if __name__ == "__main__":
     import network.network as net
-    TestNet = net.Network("../../problems/smallnet.min")
+    TestNet = net.Network("../../../problems/smallnet.min")
     TestSolver = LLDuality(TestNet, big_m=1.0e10)
 
     print(TestSolver.solve([False, True, True, False, True, False, False]))

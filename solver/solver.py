@@ -270,7 +270,7 @@ class TrialSolver:
 ### For testing (delete later)
 
 if __name__ == "__main__":
-    TestSolver = TrialSolver("problems/smallnet.min")
+    TestSolver = TrialSolver("../problems/smallnet.min")
 
     #print(TestSolver.solve_milp_cutting_plane())
     #print(TestSolver.solve_lp_cutting_plane())
