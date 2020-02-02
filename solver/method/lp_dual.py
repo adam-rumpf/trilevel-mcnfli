@@ -120,9 +120,9 @@ class LLDuality:
         # variable terms.
 
         # Common base constrants
-        arc_con_vars = [[node_vars[a.tail.id], node_vars[a.head.id]]
-                        for a in self.Net.arcs]
-        arc_con_coef = [[-1.0, 1.0] for a in self.Net.arcs]
+        arc_con_vars = [[node_vars[a.tail.id], node_vars[a.head.id],
+                         bound_vars[a.id]] for a in self.Net.arcs]
+        arc_con_coef = [[-1.0, 1.0, 1.0] for a in self.Net.arcs]
 
         # Destructible arcs receive a penalty term
         for i in range(len(self.Net.att_arcs)):
@@ -271,6 +271,12 @@ if __name__ == "__main__":
     TestSolver = LLDuality(TestNet)
 
     print(TestSolver.solve([False, True, True, False, True, False, False]))
+    #print(TestSolver.solve([False, False, False, False, False, False, False]))
+
+    nms = TestSolver.DualModel.variables.get_names()
+    val = TestSolver.DualModel.solution.get_values()
+    for i in range(len(nms)):
+        print(str(nms[i])+" = "+str(val[i]))
 
     TestSolver.DualModel.write("dual_program.lp")
 
