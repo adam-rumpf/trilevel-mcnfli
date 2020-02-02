@@ -210,6 +210,7 @@ class UpperLevel:
         # Solve the upper-level problem for an initial solution
         timer = time.time()
         (obj_lb, defend) = self._upper_solve(cplex_epsilon=cplex_epsilon)
+        print(self.TopModel.solution.get_values())###
         upper_time += time.time() - timer
 
         ###
@@ -247,6 +248,10 @@ class UpperLevel:
             timer = time.time()
             (obj_lb, defend) = self._upper_solve(cplex_epsilon=cplex_epsilon)
             upper_time += time.time() - timer
+
+            ###
+            print(self.TopModel.solution.get_values())
+            print(defend)
 
             ###
             print("rho3 = "+str(obj_lb))
@@ -385,11 +390,14 @@ class UpperLevel:
                 new_con_vars.append(self.pen_vars[i])
                 new_con_coef.append(1)
 
+        # Set infinite objectives to big-M
+        obj = min(objective, self.big_m)
+
         # Add constraints to Cplex object
         self.TopModel.linear_constraints.add(names=[
                 "s("+str(self.side_constraints)+")"],
                 lin_expr=[[new_con_vars, new_con_coef]],
-                senses=["G"], rhs=[objective])
+                senses=["G"], rhs=[obj])
         self.side_constraints += 1
 
     #--------------------------------------------------------------------------
