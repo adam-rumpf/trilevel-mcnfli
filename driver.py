@@ -43,7 +43,7 @@ are arranged as follows:
 import gc
 import random
 
-import solver
+import solver.solver as sl
 
 #==============================================================================
 def single_trial(input_file, output_directory, overwrite=False):
@@ -83,7 +83,7 @@ def single_trial(input_file, output_directory, overwrite=False):
         if i == 0:
 
             # Initialize temporary solver
-            Model = TrialSolver(input_file)
+            Model = sl.TrialSolver(input_file)
 
             # Get network statistics
             results[1] = len(Model.Net.nodes)
@@ -107,7 +107,7 @@ def single_trial(input_file, output_directory, overwrite=False):
         elif i == 1:
 
             # Initialize temporary solver
-            Model = TrialSolver(input_file)
+            Model = sl.TrialSolver(input_file)
 
             # Solve bilevel submodel with no defense
             (obj, _, _, _) = Model.solve_milp_defend([])
@@ -119,7 +119,7 @@ def single_trial(input_file, output_directory, overwrite=False):
         elif i == 2:
 
             # Initialize temporary solver
-            Model = TrialSolver(input_file)
+            Model = sl.TrialSolver(input_file)
 
             # Solve trilevel model
             (obj, sol, _, times, itera) = Model.solve_milp_cutting_plane()

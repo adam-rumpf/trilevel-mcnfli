@@ -16,8 +16,8 @@ if __name__ == "__main__":
     import method.milp_lp_cp as milpcp
     import method.lp_dual as lpd
 else:
-    import solver.method.milp_lp_cp as milpcp
-    import solver.method.lp_dual as lpd
+    import solver.upper.method.milp_lp_cp as milpcp
+    import solver.upper.method.lp_dual as lpd
 
 #==============================================================================
 class UpperLevel:

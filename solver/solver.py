@@ -11,9 +11,14 @@ for comparison.
 import gc
 import time
 
-import solver.upper_cp as ucp
-import solver.method.milp_lp_cp as milpcp
-import solver.method.network.network as net
+if __name__ == "__main__":
+    import upper.upper_cp as ucp
+    import upper.method.milp_lp_cp as milpcp
+    import upper.method.network.network as net
+else:
+    import solver.upper.upper_cp as ucp
+    import solver.upper.method.milp_lp_cp as milpcp
+    import solver.upper.method.network.network as net
 
 #==============================================================================
 class TrialSolver:
