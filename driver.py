@@ -18,7 +18,7 @@ are arranged as follows:
     [1] Number of nodes
     [2] Number of arcs
     [3] Number of interdependencies
-    [4] Type of interdependency ('a' for arcs, 'n' for sink nodes)
+    [4] Type of interdependency (0 for sink nodes, 1 for arcs)
     [5] Number of allowed defenses
     [6] Number of allowed attacks
     [7] Initial objecive value of underlying MILP
