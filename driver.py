@@ -329,7 +329,6 @@ def refresh_files(directory):
 ### For testing (delete later)
 
 #single_trial("problems/smallnet.min", "results/", overwrite=True)
-
 #refresh_files("results/")
-
-trial_list("trial_list.txt", "results/", overwrite=True)
+#trial_list("trial_list.txt", "results/", overwrite=True)
+single_trial("problems/smalltest.min", "results/", overwrite=True)
