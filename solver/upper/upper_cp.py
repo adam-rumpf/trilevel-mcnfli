@@ -38,7 +38,7 @@ class UpperLevel:
     """
 
     #--------------------------------------------------------------------------
-    def __init__(self, net_in, method, big_m=1.0e16):
+    def __init__(self, net_in, method, big_m=1.0e16, small_m=1.0e10):
         """Solution object constructor.
 
         Initializes a lower-level model object corresponding to the chosen
@@ -58,6 +58,10 @@ class UpperLevel:
                 chosen to be significantly larger than the largest objective
                 allowed to be returned by the lower-level submodel. Defaults to
                 1.0e16.
+            small_m -- Big-M constant for use in the lower-level model. Should
+                still be larger than any reasonable values produced by the
+                solution algorithm, but significantly smaller than big_m.
+                Defaults to 1.0e10.
         """
 
         self.Net = net_in # set reference to network object
@@ -66,11 +70,11 @@ class UpperLevel:
 
         # Initialize the chosen type of lower-level solver
         if self.method == 1:
-            self.LowerLevel = milpcp.LLCuttingPlane(self.Net, 1)
+            self.LowerLevel = milpcp.LLCuttingPlane(self.Net, 1, big_m=small_m)
         elif self.method == 2:
-            self.LowerLevel = milpcp.LLCuttingPlane(self.Net, 2)
+            self.LowerLevel = milpcp.LLCuttingPlane(self.Net, 2, big_m=small_m)
         elif self.method == 3:
-            self.LowerLevel = lpd.LLDuality(self.Net)
+            self.LowerLevel = lpd.LLDuality(self.Net, big_m=small_m)
 
         # Initialize Cplex object
         self._cplex_setup()
