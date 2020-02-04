@@ -1,6 +1,6 @@
 # Trilevel Network Interdiction Game with Linear Interdependencies
 
-A collection of programs used to generate computational results for a research project of mine involving a trilevel network interdiction game on an interdependent network. This is a deprecated Python implementation of the final implementation. It contains some errors and debug code which were later corrected in the C++ implementation, found [here](https://github.com/adam-rumpf/trilevel-mcnfli-python). I would not expect these programs to be of use to anyone outside of my research group, but they are provided here for anyone interested.
+A collection of programs used to generate computational results for a research project of mine involving a trilevel network interdiction game on an interdependent network. This is a deprecated Python implementation of the final implementation. It contains some errors and debug code which were later corrected in the C++ implementation, found [here](https://github.com/adam-rumpf/trilevel-mcnfli). I would not expect these programs to be of use to anyone outside of my research group, but they are provided here for anyone interested.
 
 This module makes use of the [CPLEX Python API](https://www.ibm.com/support/knowledgecenter/SSSA5P_12.7.1/ilog.odms.cplex.help/CPLEX/GettingStarted/topics/set_up/Python_setup.html) for solving the various linear and mixed-integer programs involved in the trilevel game.
 
