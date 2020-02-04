@@ -182,12 +182,20 @@ class LLDuality:
                                               rhs=[self.Net.att_limit])
 
         # Add penalty variable indicator constraints to Cplex object
-        self.DualModel.indicator_constraints.add_batch(name=pen_con,
-                                       indvar=self.att_vars,
-                                       complemented=[1 for a in self.att_vars],
-                                       lin_expr=pen_expr,
-                                       sense=["L" for a in self.att_vars],
-                                       rhs=[0.0 for a in self.att_vars])
+        ###
+#        self.DualModel.indicator_constraints.add_batch(name=pen_con,
+#                                       indvar=self.att_vars,
+#                                       complemented=[1 for a in self.att_vars],
+#                                       lin_expr=pen_expr,
+#                                       sense=["L" for a in self.att_vars],
+#                                       rhs=[0.0 for a in self.att_vars])
+        for i in range(len(pen_con)):
+            self.DualModel.indicator_constraints.add(name=pen_con[i],
+                                                     indvar=self.att_vars[i],
+                                                     complemented=1,
+                                                     lin_expr=pen_expr[i],
+                                                     sense="L",
+                                                     rhs=0.0)
 
         # Add arc constraints to Cplex object
         self.DualModel.linear_constraints.add(names=arc_con,
@@ -246,8 +254,20 @@ class LLDuality:
             self.DualModel.linear_constraints.set_rhs([(self.att_con[i],
                            new_rhs[i]) for i in range(len(self.Net.def_arcs))])
 
+        self.DualModel.write("DualModel.lp")###
+
         # Solve the MILP
         self.DualModel.solve()
+
+        ###
+        if self.DualModel.solution.is_primal_feasible() == True:
+            print("Lower-level primal feasible.")
+        else:
+            print("Lower-level primal infeasible.")
+        if self.DualModel.solution.is_dual_feasible() == True:
+            print("Lower-level dual feasible.")
+        else:
+            print("Lower-level dual infeasible.")
 
         # Get the objective value
         obj = self.DualModel.solution.get_objective_value()

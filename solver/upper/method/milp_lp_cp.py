@@ -105,7 +105,7 @@ class LLCuttingPlane:
         # upper bound in order to ensure dual feasibility
         self.UpperModel.variables.add(obj=[1.0], names=[self.obj_var],
                                       lb=[-cplex.infinity],
-                                      ub=[self.big_m])
+                                      ub=[1000*self.big_m])
 
         # Add binary attack decision variables to Cplex object
         self.UpperModel.variables.add(names=self.att_vars,
@@ -426,12 +426,18 @@ class LLCuttingPlane:
                                                    cplex_epsilon=cplex_epsilon)
 
         ###
-        print("rho1 = "+str(obj_lb))
+        print("rho3 = "+str(obj_lb))
 
         obj_gap = abs(obj_ub - obj_lb) # current optimality gap
 
         ###
         print("Optimality gap = "+str(obj_gap))
+
+        if feasible == False:
+            print("Response problem infeasible.")
+            obj_ub = self.big_m
+            obj_lb = self.big_m
+            status = 1
 
         #----------------------------------------------------------------------
         # Main cutting plane loop begin
@@ -465,7 +471,7 @@ class LLCuttingPlane:
                 break
 
             ###
-            print("rho1 = "+str(obj_lb))
+            print("rho3 = "+str(obj_lb))
 
             # Recalculate the optimality gap
             obj_gap = abs(obj_ub - obj_lb)

@@ -123,7 +123,7 @@ class UpperLevel:
         # Add objective bound variable to Cplex object, with a finite but large
         # lower bound in order to ensure dual feasibility
         self.TopModel.variables.add(obj=[1.0], names=[self.obj_var],
-                                    lb=[-self.big_m],
+                                    lb=[-1000*self.big_m],
                                     ub=[cplex.infinity])
 
         # Add binary defense decision variables to Cplex object
@@ -226,17 +226,18 @@ class UpperLevel:
         # Solve the upper-level problem for an initial solution
         timer = time.time()
         (obj_lb, defend) = self._upper_solve(cplex_epsilon=cplex_epsilon)
-        print(self.TopModel.solution.get_values())###
+        print("Defend: "+str([int(d) for d in defend]))###
         upper_time += time.time() - timer
 
         ###
-        print("\nrho3 = "+str(obj_lb))
+        print("\nrho1 = "+str(obj_lb))
 
         # Find the lower-level response for the given attack vector
         timer = time.time()
         (obj_ub, destroy, status, lower_iterations) = self.lower_solve(defend,
                cutoff=lower_cutoff, gap=lower_gap, cplex_epsilon=cplex_epsilon)
         lower_time += time.time() - timer
+        print("Attack: "+str([int(d) for d in destroy]))###
 
         ###
         print("\n"+"="*60)
@@ -266,11 +267,11 @@ class UpperLevel:
             upper_time += time.time() - timer
 
             ###
-            print(self.TopModel.solution.get_values())
+            print("Defend: "+str([int(d) for d in defend]))
             ###print(defend)
 
             ###
-            print("rho3 = "+str(obj_lb))
+            print("rho1 = "+str(obj_lb))
 
             # Re-solve the lower-level response
             timer = time.time()
@@ -278,6 +279,7 @@ class UpperLevel:
                cutoff=lower_cutoff, gap=lower_gap, cplex_epsilon=cplex_epsilon)
             lower_time += time.time() - timer
             lower_iterations += li
+            print("Attack: "+str([int(d) for d in destroy]))###
 
             # Break in case of lower-level error
             if status == 2:
@@ -329,6 +331,16 @@ class UpperLevel:
         # Solve the MILP
         self.TopModel.solve()
 
+        ###
+        if self.TopModel.solution.is_primal_feasible() == True:
+            print("Top-level primal feasible.")
+        else:
+            print("Top-level primal infeasible.")
+        if self.TopModel.solution.is_dual_feasible() == True:
+            print("Top-level dual feasible.")
+        else:
+            print("Top-level dual infeasible.")
+
         # Get the objective value
         obj = self.TopModel.solution.get_objective_value()
 
@@ -376,6 +388,8 @@ class UpperLevel:
             iterations -- Number of iterations of the lower-level algorithm's
                 cutting plane loop (0 if not applicable).
         """
+
+        input("Press [Enter] to continue...")###
 
         # Call the appropriate lower-level solver and return its results
         return self.LowerLevel.solve(defend, cutoff=cutoff, gap=gap,
