@@ -101,10 +101,11 @@ class LLCuttingPlane:
         self.att_vars = ["at("+str(a.id)+")" for a in self.Net.att_arcs]
         self.pen_vars = ["pt("+str(a.id)+")" for a in self.Net.att_arcs]
 
-        # Add objective bound variable to Cplex object
+        # Add objective bound variable to Cplex object, with a finite but large
+        # upper bound in order to ensure dual feasibility
         self.UpperModel.variables.add(obj=[1.0], names=[self.obj_var],
                                       lb=[-cplex.infinity],
-                                      ub=[cplex.infinity])
+                                      ub=[self.big_m])
 
         # Add binary attack decision variables to Cplex object
         self.UpperModel.variables.add(names=self.att_vars,
@@ -137,13 +138,14 @@ class LLCuttingPlane:
         # Define penalty variable constraints to limit value when activated
         pen_expr = [[[v], [1]] for v in self.pen_vars]
 
-        # Add attack constraints to Cplex object
+        # Add attack constraints to Cplex object, using equality for the attack
+        # bound in order to reduce the number of feasible solutions
         self.UpperModel.linear_constraints.add(names=self.att_con,
                                                lin_expr=att_expr,
                                                senses=att_sense, rhs=att_rhs)
         self.UpperModel.linear_constraints.add(names=["ab"],
                                                lin_expr=att_lim_expr,
-                                               senses=["L"],
+                                               senses=["E"],
                                                rhs=[self.Net.att_limit])
 
         # Add penalty variable indicator constraints to Cplex object
@@ -164,6 +166,8 @@ class LLCuttingPlane:
 
         # Keep track of the number of side constraints generated so far
         self.side_constraints = 0
+
+        self.UpperModel.write("UpperModel.lp")###
 
     #--------------------------------------------------------------------------
     def _lower_cplex_setup(self, mode):
@@ -357,6 +361,8 @@ class LLCuttingPlane:
                                                    senses=flow_int_sense,
                                                    rhs=flow_int_rhs)
 
+        self.LowerModel.write("LowerModel.lp")###
+
     #--------------------------------------------------------------------------
     def solve(self, defend, cutoff=100, gap=0.01, cplex_epsilon=0.001):
         """Bilevel subproblem solution method.
@@ -430,7 +436,7 @@ class LLCuttingPlane:
         #----------------------------------------------------------------------
         # Main cutting plane loop begin
 
-        while (iteration < cutoff) and (obj_gap > gap):
+        while (iteration < cutoff) and (obj_gap > gap) and (feasible == True):
 
             iteration += 1
 
@@ -516,9 +522,10 @@ class LLCuttingPlane:
 
         # Set unbounded objective value to infinity (CPLEX returns an objective
         # of 0.0 for unbounded primal problems)
-        if ((obj == 0.0) and
-            (self.UpperModel.solution.is_primal_feasible() == True)):
-            obj = cplex.infinity
+        ###
+#        if ((obj == 0.0) and
+#            (self.UpperModel.solution.is_primal_feasible() == True)):
+#            obj = cplex.infinity
 
         # Get the solution vector
         destroy = [False for a in self.Net.att_arcs]
@@ -581,6 +588,8 @@ class LLCuttingPlane:
                 if self.LowerModel.solution.get_values(self.flow_vars[i]) > 0:
                     nonzero[i] = True
 
+        self.LowerModel.write("LowerModel.lp")###
+
         return (obj, nonzero, status)
 
     #--------------------------------------------------------------------------
@@ -615,6 +624,8 @@ class LLCuttingPlane:
                 lin_expr=[[new_con_vars, new_con_coef]],
                 senses=["L"], rhs=[objective])
         self.side_constraints += 1
+
+        self.UpperModel.write("UpperModel.lp")###
 
     #--------------------------------------------------------------------------
     def end(self):

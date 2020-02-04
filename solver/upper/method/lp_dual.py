@@ -171,13 +171,14 @@ class LLDuality:
         # Define penalty variable constraints to limit value when activated
         pen_expr = [[[v], [1]] for v in pen_vars]
 
-        # Add attack constraints to Cplex object
+        # Add attack constraints to Cplex object, using equality for the attack
+        # bound in order to reduce the number of feasible solutions
         self.DualModel.linear_constraints.add(names=self.att_con,
                                               lin_expr=att_expr,
                                               senses=att_sense, rhs=att_rhs)
         self.DualModel.linear_constraints.add(names=["ab"],
                                               lin_expr=att_lim_expr,
-                                              senses=["L"],
+                                              senses=["E"],
                                               rhs=[self.Net.att_limit])
 
         # Add penalty variable indicator constraints to Cplex object
@@ -195,6 +196,8 @@ class LLDuality:
                                           for i in range(len(self.Net.arcs))],
                                           senses="G"*len(self.Net.arcs),
                                           rhs=[-a.cost for a in self.Net.arcs])
+
+        self.DualModel.write("DualModel.lp")###
 
     #--------------------------------------------------------------------------
     def solve(self, defend, cutoff=100, gap=0.01, cplex_epsilon=0.001):

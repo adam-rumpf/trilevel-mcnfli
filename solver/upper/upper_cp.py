@@ -120,9 +120,10 @@ class UpperLevel:
         self.def_vars = ["df("+str(a.id)+")" for a in self.Net.def_arcs]
         self.pen_vars = ["pt("+str(a.id)+")" for a in self.Net.def_arcs]
 
-        # Add objective bound variable to Cplex object
+        # Add objective bound variable to Cplex object, with a finite but large
+        # lower bound in order to ensure dual feasibility
         self.TopModel.variables.add(obj=[1.0], names=[self.obj_var],
-                                    lb=[-cplex.infinity],
+                                    lb=[-self.big_m],
                                     ub=[cplex.infinity])
 
         # Add binary defense decision variables to Cplex object
@@ -144,10 +145,11 @@ class UpperLevel:
         # Define penalty variable constraints to limit value when activated
         pen_expr = [[[v], [1]] for v in self.pen_vars]
 
-        # Add defense constraints to Cplex object
+        # Add defense constraints to Cplex object, using equality to reduce the
+        # number of feasible solutions
         self.TopModel.linear_constraints.add(names=["db"],
                                              lin_expr=def_lim_expr,
-                                             senses=["L"],
+                                             senses=["E"],
                                              rhs=[self.Net.def_limit])
 
         # Add penalty variable indicator constraints to Cplex object
@@ -265,7 +267,7 @@ class UpperLevel:
 
             ###
             print(self.TopModel.solution.get_values())
-            print(defend)
+            ###print(defend)
 
             ###
             print("rho3 = "+str(obj_lb))
@@ -332,9 +334,10 @@ class UpperLevel:
 
         # Set unbounded objective value to infinity (CPLEX returns an objective
         # of 0.0 for unbounded primal problems)
-        if ((obj == 0.0) and
-            (self.TopModel.solution.is_primal_feasible() == True)):
-            obj = -cplex.infinity
+        ###
+#        if ((obj == 0.0) and
+#            (self.TopModel.solution.is_primal_feasible() == True)):
+#            obj = -cplex.infinity
 
         # Get the solution vector
         defend = [False for a in self.Net.def_arcs]
@@ -413,6 +416,8 @@ class UpperLevel:
                 lin_expr=[[new_con_vars, new_con_coef]],
                 senses=["G"], rhs=[obj])
         self.side_constraints += 1
+
+        self.TopModel.write("TopModel.lp")###
 
     #--------------------------------------------------------------------------
     def end(self):
