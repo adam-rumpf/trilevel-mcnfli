@@ -72,6 +72,9 @@ def single_trial(input_file, output_directory, overwrite=False):
     # Initialize LP defensive decisions
     lp_sol = []
 
+    ###
+    order = [0, 1]
+
     # Main trial loop
     for i in order:
 
@@ -331,4 +334,8 @@ def refresh_files(directory):
 #single_trial("problems/smallnet.min", "results/", overwrite=True)
 #refresh_files("results/")
 #trial_list("trial_list.txt", "results/", overwrite=True)
-single_trial("problems/smalltest.min", "results/", overwrite=True)
+
+testfiles = ["problems/smalltest.min", "problems/bigtest.min"]
+for tf in testfiles:
+    print("\n"+"#"*60+"\nTesting "+tf+"\n"+"#"*60+"\n")
+    single_trial(tf, "results/", overwrite=True)

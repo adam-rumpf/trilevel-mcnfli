@@ -147,12 +147,20 @@ class LLCuttingPlane:
                                                rhs=[self.Net.att_limit])
 
         # Add penalty variable indicator constraints to Cplex object
-        self.UpperModel.indicator_constraints.add_batch(name=pen_con,
-                                       indvar=self.att_vars,
-                                       complemented=[1 for a in self.att_vars],
-                                       lin_expr=pen_expr,
-                                       sense=["L" for a in self.att_vars],
-                                       rhs=[0.0 for a in self.att_vars])
+        ###
+#        self.UpperModel.indicator_constraints.add_batch(name=pen_con,
+#                                       indvar=self.att_vars,
+#                                       complemented=[1 for a in self.att_vars],
+#                                       lin_expr=pen_expr,
+#                                       sense=["L" for a in self.att_vars],
+#                                       rhs=[0.0 for a in self.att_vars])
+        for i in range(len(pen_con)):
+            self.UpperModel.indicator_constraints.add(name=pen_con[i],
+                                                      indvar=self.att_vars[i],
+                                                      complemented=1,
+                                                      lin_expr=pen_expr[i],
+                                                      sense="L",
+                                                      rhs=0.0)
 
         # Keep track of the number of side constraints generated so far
         self.side_constraints = 0
@@ -298,12 +306,20 @@ class LLCuttingPlane:
             child_expr = [[[self.flow_vars[a.id]], [1]] for a in children]
 
             # Add interdependency indicator constraints to Cplex object
-            self.LowerModel.indicator_constraints.add_batch(name=child_con,
-                                             indvar=slack_vars,
-                                             complemented=[0 for a in parents],
-                                             lin_expr=child_expr,
-                                             sense=["L" for a in parents],
-                                             rhs=[0.0 for a in children])
+            ###
+#            self.LowerModel.indicator_constraints.add_batch(name=child_con,
+#                                             indvar=slack_vars,
+#                                             complemented=[0 for a in parents],
+#                                             lin_expr=child_expr,
+#                                             sense=["L" for a in parents],
+#                                             rhs=[0.0 for a in children])
+            for i in range(len(child_con)):
+                self.LowerModel.indicator_constraints.add(name=child_con[i],
+                                                        indvar=slack_vars[i],
+                                                        complemented=0,
+                                                        lin_expr=child_expr[i],
+                                                        sense="L",
+                                                        rhs=0.0)
 
         elif mode == 2:
 

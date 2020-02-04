@@ -147,15 +147,25 @@ class UpperLevel:
                                              rhs=[self.Net.def_limit])
 
         # Add penalty variable indicator constraints to Cplex object
-        self.TopModel.indicator_constraints.add_batch(name=pen_con,
-                                       indvar=self.def_vars,
-                                       complemented=[1 for a in self.def_vars],
-                                       lin_expr=pen_expr,
-                                       sense=["L" for a in self.def_vars],
-                                       rhs=[0.0 for a in self.def_vars])
+        ###
+#        self.TopModel.indicator_constraints.add_batch(name=pen_con,
+#                                       indvar=self.def_vars,
+#                                       complemented=[1 for a in self.def_vars],
+#                                       lin_expr=pen_expr,
+#                                       sense=["L" for a in self.def_vars],
+#                                       rhs=[0.0 for a in self.def_vars])
+        for i in range(len(pen_con)):
+            self.TopModel.indicator_constraints.add(name=pen_con[i],
+                                                    indvar=self.def_vars[i],
+                                                    complemented=1,
+                                                    lin_expr=pen_expr[i],
+                                                    sense="L",
+                                                    rhs=0.0)
 
         # Keep track of the number of side constraints generated so far
         self.side_constraints = 0
+
+        self.TopModel.write("TopModel.lp")###
 
     #--------------------------------------------------------------------------
     def solve(self, cutoff=100, lower_cutoff=100, gap=0.01, lower_gap=0.01,
