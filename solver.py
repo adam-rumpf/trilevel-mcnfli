@@ -11,14 +11,9 @@ for comparison.
 import gc
 import time
 
-if __name__ == "__main__":
-    import upper.upper_cp as ucp
-    import upper.method.milp_lp_cp as milpcp
-    import upper.method.network.network as net
-else:
-    import solver.upper.upper_cp as ucp
-    import solver.upper.method.milp_lp_cp as milpcp
-    import solver.upper.method.network.network as net
+import upper.upper_cp as ucp
+import upper.lower.milp_lp_cp as milpcp
+import upper.lower.network.network as net
 
 #==============================================================================
 class TrialSolver:
@@ -296,7 +291,7 @@ class TrialSolver:
 ### For testing (delete later)
 
 if __name__ == "__main__":
-    TestSolver = TrialSolver("../problems/smallnet.min")
+    TestSolver = TrialSolver("problems/smallnet.min")
 
     #print(TestSolver.solve_milp_cutting_plane())
     #print(TestSolver.solve_lp_cutting_plane())

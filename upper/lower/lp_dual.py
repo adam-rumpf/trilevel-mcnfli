@@ -11,6 +11,8 @@ relaxation of the binary interdependence model.
 
 import cplex
 
+import upper.lower.network.network as net
+
 #==============================================================================
 class LLDuality:
     """Class to implement the duality method for the LP lower model.
@@ -28,7 +30,7 @@ class LLDuality:
     def __init__(self, net_in, big_m=1.0e10):
         """LP duality solution object constructor.
 
-        Ininitializes the Cplex objects associated with the lower-level
+        Initializes the Cplex objects associated with the lower-level
         subproblem.
 
         Requires the following positional arguments:
@@ -124,7 +126,7 @@ class LLDuality:
         # term while interdependent arcs also receive interdependency dual
         # variable terms.
 
-        # Common base constrants
+        # Common base constraints
         arc_con_vars = [[node_vars[a.tail.id], node_vars[a.head.id],
                          bound_vars[a.id]] for a in self.Net.arcs]
         arc_con_coef = [[-1.0, 1.0, 1.0] for a in self.Net.arcs]
@@ -212,7 +214,7 @@ class LLDuality:
         """Bilevel subproblem solution method.
 
         The duality formulation includes a single MILP that combines both the
-        attacker's decision variables and (the dual verion of) the defender's
+        attacker's decision variables and (the dual version of) the defender's
         response. For this reason the submodel need only be solved once in
         order to obtain an attack vector and objective value.
 
@@ -316,7 +318,6 @@ class LLDuality:
 ### For testing (delete later)
 
 if __name__ == "__main__":
-    import network.network as net
     TestNet = net.Network("../../../problems/smallnet.min")
     TestSolver = LLDuality(TestNet, big_m=1.0e10)
 

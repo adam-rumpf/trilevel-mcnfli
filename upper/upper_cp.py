@@ -12,12 +12,9 @@ here to select which solution method to use for the lower-level.
 import cplex
 import time
 
-if __name__ == "__main__":
-    import method.milp_lp_cp as milpcp
-    import method.lp_dual as lpd
-else:
-    import solver.upper.method.milp_lp_cp as milpcp
-    import solver.upper.method.lp_dual as lpd
+import upper.lower.network.network as net
+import upper.lower.milp_lp_cp as milpcp
+import upper.lower.lp_dual as lpd
 
 #==============================================================================
 class UpperLevel:
@@ -33,7 +30,7 @@ class UpperLevel:
     Includes a public method solve_lower() for solving the lower-level problem
     associated with a given upper-level decision. This is used repeatedly
     within the overall cutting plane solution process, but it can also be
-    called on its own to evaluate a single defensive deicsion, for example to
+    called on its own to evaluate a single defensive decision, for example to
     evaluate the optimality gap of a heuristically-chosen defense.
     """
 
@@ -491,7 +488,6 @@ class UpperLevel:
 ### For testing (delete later)
 
 if __name__ == "__main__":
-    import method.network.network as net
     TestNet = net.Network("../../problems/smallnet.min")
     TestSolver = UpperLevel(TestNet, 3)
 

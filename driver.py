@@ -21,7 +21,7 @@ are arranged as follows:
     [4] Type of interdependency (0 for sink nodes, 1 for arcs)
     [5] Number of allowed defenses
     [6] Number of allowed attacks
-    [7] Initial objecive value of underlying MILP
+    [7] Initial objective value of underlying MILP
     [8] Objective value of MILP after attacks with no defense
     [9] Solution time for MILP via cutting plane
     [10] Upper trilevel iterations for MILP via cutting plane
@@ -39,7 +39,7 @@ are arranged as follows:
 import gc
 import random
 
-import solver.solver as sl
+import solver as sl
 
 #==============================================================================
 def single_trial(input_file, output_directory, overwrite=False,
@@ -116,7 +116,7 @@ def single_trial(input_file, output_directory, overwrite=False,
             # Solve initial MILP
             (obj, feas) = Model.solve_milp_initial()
 
-            # Break if the model is infesible
+            # Break if the model is infeasible
             if feas != 0:
                 break
 
@@ -338,7 +338,7 @@ def _write_sol(file_name, trial_name, vector, overwrite=False):
             to False.
     """
 
-    # Set file writing mode based on ovewrite option
+    # Set file writing mode based on overwrite option
     m = 'a'
     if overwrite == True:
         m = 'w'
@@ -385,5 +385,5 @@ def refresh_files(directory):
 testfiles = ["problems/smalltestnet.min"]#["problems/smalltest.min", "problems/bigtest.min"]
 for tf in testfiles:
     print("\n"+"#"*60+"\nTesting "+tf+"\n"+"#"*60+"\n")
-    single_trial(tf, "results/", overwrite=True, upper_cutoff=30,
-                 lower_cutoff=50, upper_gap=100, lower_gap=100)
+    single_trial(tf, "results/", overwrite=True, upper_cutoff=5,
+                 lower_cutoff=10, upper_gap=100, lower_gap=100)

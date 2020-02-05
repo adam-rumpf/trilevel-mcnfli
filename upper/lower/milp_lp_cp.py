@@ -14,6 +14,8 @@ binary interdependence model.
 
 import cplex
 
+import upper.lower.network.network as net
+
 #==============================================================================
 class LLCuttingPlane:
     """Class to implement the cutting plane method for the lower LP or MILP.
@@ -31,7 +33,7 @@ class LLCuttingPlane:
     def __init__(self, net_in, mode, big_m=1.0e10):
         """LP or MILP cutting plane solution object constructor.
 
-        Ininitializes the Cplex objects associated with the lower-level
+        Initializes the Cplex objects associated with the lower-level
         subproblem, which is constructed either as the LP or the MILP version
         of the interdependent network flows program, depending on the selected
         option.
@@ -670,7 +672,6 @@ class LLCuttingPlane:
 ### For testing (delete later)
 
 if __name__ == "__main__":
-    import network.network as net
     TestNet = net.Network("../../../problems/smallnet.min")
     TestSolver = LLCuttingPlane(TestNet, 1)
     PrintSolver = LLCuttingPlane(TestNet, 2)
