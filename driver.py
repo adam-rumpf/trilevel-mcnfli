@@ -91,7 +91,7 @@ def single_trial(input_file, output_directory, overwrite=False,
     lp_sol = []
 
     ###
-    order = [4]
+    order = [0, 1, 3]
 
     # Main trial loop
     for i in order:
@@ -130,7 +130,8 @@ def single_trial(input_file, output_directory, overwrite=False,
             Model = sl.TrialSolver(input_file)
 
             # Solve bilevel submodel with no defense
-            (obj, _, _, _) = Model.solve_milp_defend([], big_m=small_m)
+            (obj, _, _, _) = Model.solve_milp_defend([], cutoff=lower_cutoff,
+                                                  gap=lower_gap, big_m=small_m)
 
             # Record objective
             results[8] = obj
@@ -333,9 +334,8 @@ def _write_sol(file_name, trial_name, vector, overwrite=False):
 
     Accepts the following optional keyword arguments:
         overwrite -- Selects whether to overwrite the existing output file. If
-            True, creates a new file with a new comment line and deletes any
-            existing copy. If False, appends line to an existing file. Defaults
-            to False.
+            True, creates a new file and deletes any existing copy. If False,
+            appends line to an existing file. Defaults to False.
     """
 
     # Set file writing mode based on overwrite option
