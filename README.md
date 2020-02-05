@@ -8,16 +8,18 @@ This module makes use of the [CPLEX Python API](https://www.ibm.com/support/know
 
 This module includes a variety of submodules for running various aspects of the computational trial evaluation process. They are organized as follows:
 
-* `base/`
-  * `solver/`
-    * `method/`
-      * `network/`
-        * `network.py`: Network object module for use in storing the network defined by the NETGEN input file as well as additional problem info.
-      * `lp_dual.py`: Duality algorithm for the lower-level bilevel program with the linear interdependence model as its lower level.
-      * `milp_lp_cp.py`: Cutting plane algorithm for the lower-level bilevel program with either the binary or the linear interdependence model as its lower level (class constructor method selects whether to use LP or MILP model).
-    * `upper_cp.py`: Driver for the upper-level cutting plane algorithm.
-  * `solver.py`: Solution algorithm driver. Used to call each solution algorithm in turn and store its results.
-* `driver.py`: Main driver. Processes each computational trial file one-by-one to apply all available solution methods and record the results.
+```
+base/
+    upper/
+        lower/
+            network/
+                network.py: Network object module for use in storing the network defined by the NETGEN input file as well as additional problem info.
+            lp_dual.py: Duality algorithm for the lower-level bilevel program with the linear interdependence model as its lower level.
+            milp_lp_cp.py: Cutting plane algorithm for the lower-level bilevel program with either the binary or the linear interdependence model as its lower level (class constructor method selects whether to use LP or MILP model).
+        upper_cp.py: Driver for the upper-level cutting plane algorithm.
+    driver.py: Trial batch driver. Processes each computational trial file one-by-one to apply all available solution methods and record the results.  
+    solver.py: Solution algorithm driver. Used to call each solution algorithm in turn and store its results.
+```
 
 ## Input Format
 
