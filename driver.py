@@ -45,7 +45,7 @@ import solver as sl
 def single_trial(input_file, output_directory, overwrite=False,
                  upper_cutoff=100, lower_cutoff=100, upper_gap=0.01,
                  lower_gap=0.01, cplex_epsilon=0.001, big_m=1.0e16,
-                 small_m=1.0e10):
+                 small_m=1.0e10, trials=None):
     """Processes a single trial instance.
 
     Runs a collection of tests on a single trial instance and writes the
@@ -76,6 +76,15 @@ def single_trial(input_file, output_directory, overwrite=False,
             still be larger than any reasonable values produced by the solution
             algorithm, but significantly smaller than big_m. Defaults to
             1.0e10.
+        trials -- List of trial IDs to override the default trial set. Defaults
+            to None, in which case the default set is used. The following IDs
+            are available:
+                0: Preliminary MILP solve
+                1: Defenseless MILP solve
+                2: Trilevel solve with MILP via cutting plane
+                3: Trilevel solve with LP via cutting plane
+                4: Trilevel solve with LP via duality
+                5: MILP solve with LP defense (requires trial 3 first)
     """
 
     # Initialize summary line contents
@@ -83,15 +92,15 @@ def single_trial(input_file, output_directory, overwrite=False,
     results[0] = input_file
 
     # Process trials in a semirandomized order in a loop
-    order = [i for i in range(2, 5)]
-    random.shuffle(order)
-    order = [0, 1] + order + [5]
+    if trials == None:
+        order = [i for i in range(2, 5)]
+        random.shuffle(order)
+        order = [0, 1] + order + [5]
+    else:
+        order = trials
 
     # Initialize LP defensive decisions
     lp_sol = []
-
-    ###
-    order = [0, 1, 3]
 
     # Main trial loop
     for i in order:
@@ -386,4 +395,4 @@ testfiles = ["problems/smalltest_node.min"]#["problems/smalltest.min", "problems
 for tf in testfiles:
     print("\n"+"#"*60+"\nTesting "+tf+"\n"+"#"*60+"\n")
     single_trial(tf, "results/", overwrite=True, upper_cutoff=5,
-                 lower_cutoff=10, upper_gap=100, lower_gap=100)
+                 lower_cutoff=10, upper_gap=100, lower_gap=100, trials=[3])
