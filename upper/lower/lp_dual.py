@@ -11,6 +11,8 @@ relaxation of the binary interdependence model.
 
 import cplex
 
+import upper.lower.network.network as net
+
 #==============================================================================
 class LLDuality:
     """Class to implement the duality method for the LP lower model.
@@ -28,7 +30,7 @@ class LLDuality:
     def __init__(self, net_in, big_m=1.0e10):
         """LP duality solution object constructor.
 
-        Ininitializes the Cplex objects associated with the lower-level
+        Initializes the Cplex objects associated with the lower-level
         subproblem.
 
         Requires the following positional arguments:
@@ -124,7 +126,7 @@ class LLDuality:
         # term while interdependent arcs also receive interdependency dual
         # variable terms.
 
-        # Common base constrants
+        # Common base constraints
         arc_con_vars = [[node_vars[a.tail.id], node_vars[a.head.id],
                          bound_vars[a.id]] for a in self.Net.arcs]
         arc_con_coef = [[-1.0, 1.0, 1.0] for a in self.Net.arcs]
@@ -171,22 +173,31 @@ class LLDuality:
         # Define penalty variable constraints to limit value when activated
         pen_expr = [[[v], [1]] for v in pen_vars]
 
-        # Add attack constraints to Cplex object
+        # Add attack constraints to Cplex object, using equality for the attack
+        # bound in order to reduce the number of feasible solutions
         self.DualModel.linear_constraints.add(names=self.att_con,
                                               lin_expr=att_expr,
                                               senses=att_sense, rhs=att_rhs)
         self.DualModel.linear_constraints.add(names=["ab"],
                                               lin_expr=att_lim_expr,
-                                              senses=["L"],
+                                              senses=["E"],
                                               rhs=[self.Net.att_limit])
 
         # Add penalty variable indicator constraints to Cplex object
-        self.DualModel.indicator_constraints.add_batch(name=pen_con,
-                                       indvar=self.att_vars,
-                                       complemented=[1 for a in self.att_vars],
-                                       lin_expr=pen_expr,
-                                       sense=["L" for a in self.att_vars],
-                                       rhs=[0.0 for a in self.att_vars])
+        ###
+#        self.DualModel.indicator_constraints.add_batch(name=pen_con,
+#                                       indvar=self.att_vars,
+#                                       complemented=[1 for a in self.att_vars],
+#                                       lin_expr=pen_expr,
+#                                       sense=["L" for a in self.att_vars],
+#                                       rhs=[0.0 for a in self.att_vars])
+        for i in range(len(pen_con)):
+            self.DualModel.indicator_constraints.add(name=pen_con[i],
+                                                     indvar=self.att_vars[i],
+                                                     complemented=1,
+                                                     lin_expr=pen_expr[i],
+                                                     sense="L",
+                                                     rhs=0.0)
 
         # Add arc constraints to Cplex object
         self.DualModel.linear_constraints.add(names=arc_con,
@@ -196,12 +207,14 @@ class LLDuality:
                                           senses="G"*len(self.Net.arcs),
                                           rhs=[-a.cost for a in self.Net.arcs])
 
+        self.DualModel.write("DualModel.lp")###
+
     #--------------------------------------------------------------------------
     def solve(self, defend, cutoff=100, gap=0.01, cplex_epsilon=0.001):
         """Bilevel subproblem solution method.
 
         The duality formulation includes a single MILP that combines both the
-        attacker's decision variables and (the dual verion of) the defender's
+        attacker's decision variables and (the dual version of) the defender's
         response. For this reason the submodel need only be solved once in
         order to obtain an attack vector and objective value.
 
@@ -232,8 +245,6 @@ class LLDuality:
         # Clean up the model
         self.DualModel.cleanup(cplex_epsilon)
 
-        status = 0 # exit code
-
         # Update constraints based on arc defense vector
         if len(defend) == len(self.Net.def_arcs):
             new_rhs = [1 for a in self.Net.def_arcs]
@@ -243,24 +254,54 @@ class LLDuality:
             self.DualModel.linear_constraints.set_rhs([(self.att_con[i],
                            new_rhs[i]) for i in range(len(self.Net.def_arcs))])
 
+        self.DualModel.write("DualModel.lp")###
+
         # Solve the MILP
         self.DualModel.solve()
 
+        ###
+        if self.DualModel.solution.is_primal_feasible() == True:
+            print("Lower-level primal feasible.")
+        else:
+            print("Lower-level primal infeasible.")
+        if self.DualModel.solution.is_dual_feasible() == True:
+            print("Lower-level dual feasible.")
+        else:
+            print("Lower-level dual infeasible.")
+
         # Get the objective value
-        obj = self.DualModel.solution.get_objective_value()
+#        obj = self.DualModel.solution.get_objective_value()
 
         # Set unbounded objective value to infinity (CPLEX returns an objective
         # of 0.0 for unbounded problems)
-        if ((obj == 0.0 or obj >= 0.1*self.big_m) and
-            (self.DualModel.solution.is_primal_feasible() == True)):
-            obj = cplex.infinity
-            status = 1
+        ###
+#        if ((obj == 0.0 or obj >= 0.1*self.big_m) and
+#            (self.DualModel.solution.is_primal_feasible() == True)):
+#            obj = cplex.infinity
+#            status = 1
 
-        # Get the solution vector
-        destroy = [False for a in self.Net.att_arcs]
-        for i in range(len(self.Net.att_arcs)):
-            if self.DualModel.solution.get_values(self.att_vars[i]) == 1:
-                destroy[i] = True
+        # Get objective value and solution vector
+        if self.DualModel.solution.is_dual_feasible() == True:
+            # If dual feasible then the primal is bounded and we can return the
+            # objective and solution found by CPLEX
+            status = 0
+            obj = self.DualModel.solution.get_objective_value()
+            destroy = [False for a in self.Net.att_arcs]
+            for i in range(len(self.Net.att_arcs)):
+                if self.DualModel.solution.get_values(self.att_vars[i]) == 1:
+                    destroy[i] = True
+        else:
+            # Otherwise the primal is unbounded and we return an infinite
+            # objective and an attack vector that is the exact inverse of the
+            # input defense vector (this will prevent the defender from
+            # repeating exactly the same defense that led to an infeasible
+            # response problem)
+            status = 1
+            obj = cplex.infinity
+            destroy = [True for a in self.Net.att_arcs]
+            for i in range(len(self.Net.def_arcs)):
+                if defend[i] == True:
+                    destroy[i] = False
 
         return (obj, destroy, status, 0)
 
@@ -277,7 +318,6 @@ class LLDuality:
 ### For testing (delete later)
 
 if __name__ == "__main__":
-    import network.network as net
     TestNet = net.Network("../../../problems/smallnet.min")
     TestSolver = LLDuality(TestNet, big_m=1.0e10)
 

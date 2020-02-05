@@ -49,7 +49,7 @@ class Network:
         # Initialize constants
         self.def_limit = 0 # number of allowed arc defenses
         self.att_limit = 0 # number of allowed arc attacks
-        self.parent_type = 0 # 0 for arc parents, 1 as sink node parents
+        self.parent_type = 1 # 0 for sink node parents, 1 for arc parents
 
         # Read input file
         self._read_netgen(file)
@@ -92,7 +92,7 @@ class Network:
 
                     ls = line.split()
                     if ls[5] == 'n':
-                        self.parent_type = 1
+                        self.parent_type = 0
                     self.def_limit = int(ls[6])
                     self.att_limit = int(ls[7])
 

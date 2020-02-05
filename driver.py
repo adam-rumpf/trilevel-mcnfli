@@ -21,7 +21,7 @@ are arranged as follows:
     [4] Type of interdependency (0 for sink nodes, 1 for arcs)
     [5] Number of allowed defenses
     [6] Number of allowed attacks
-    [7] Initial objecive value of underlying MILP
+    [7] Initial objective value of underlying MILP
     [8] Objective value of MILP after attacks with no defense
     [9] Solution time for MILP via cutting plane
     [10] Upper trilevel iterations for MILP via cutting plane
@@ -39,10 +39,13 @@ are arranged as follows:
 import gc
 import random
 
-import solver.solver as sl
+import solver as sl
 
 #==============================================================================
-def single_trial(input_file, output_directory, overwrite=False):
+def single_trial(input_file, output_directory, overwrite=False,
+                 upper_cutoff=100, lower_cutoff=100, upper_gap=0.01,
+                 lower_gap=0.01, cplex_epsilon=0.001, big_m=1.0e16,
+                 small_m=1.0e10):
     """Processes a single trial instance.
 
     Runs a collection of tests on a single trial instance and writes the
@@ -58,6 +61,21 @@ def single_trial(input_file, output_directory, overwrite=False):
             the output directory. If True, new output files will be created and
             existing output files will be deleted. If False, new results will
             be appended to existing output files. Defaults to False.
+        upper_cutoff -- Iteration cutoff for the upper-level cutting plane main
+            loop. Defaults to 100.
+        upper_gap -- Optimality gap tolerance for the upper-level cutting plane
+            main loop. Defaults to 0.01.
+        lower_cutoff -- Iteration cutoff for the lower-level cutting plane main
+            loop (if applicable). Defaults to 100.
+        lower_gap -- Optimality gap tolerance for the lower-level cutting plane
+            main loop (if applicable). Defaults to 0.01.
+        big_m -- Large constant for use in the big-M method. Should be chosen
+            to be significantly larger than the largest objective allowed to be
+            returned by the lower-level submodel. Defaults to 1.0e16.
+        small_m -- Big-M constant for use in the lower-level model. Should
+            still be larger than any reasonable values produced by the solution
+            algorithm, but significantly smaller than big_m. Defaults to
+            1.0e10.
     """
 
     # Initialize summary line contents
@@ -71,6 +89,9 @@ def single_trial(input_file, output_directory, overwrite=False):
 
     # Initialize LP defensive decisions
     lp_sol = []
+
+    ###
+    order = [0, 1, 3]
 
     # Main trial loop
     for i in order:
@@ -95,7 +116,7 @@ def single_trial(input_file, output_directory, overwrite=False):
             # Solve initial MILP
             (obj, feas) = Model.solve_milp_initial()
 
-            # Break if the model is infesible
+            # Break if the model is infeasible
             if feas != 0:
                 break
 
@@ -109,7 +130,8 @@ def single_trial(input_file, output_directory, overwrite=False):
             Model = sl.TrialSolver(input_file)
 
             # Solve bilevel submodel with no defense
-            (obj, _, _, _) = Model.solve_milp_defend([])
+            (obj, _, _, _) = Model.solve_milp_defend([], cutoff=lower_cutoff,
+                                                  gap=lower_gap, big_m=small_m)
 
             # Record objective
             results[8] = obj
@@ -121,7 +143,10 @@ def single_trial(input_file, output_directory, overwrite=False):
             Model = sl.TrialSolver(input_file)
 
             # Solve trilevel model
-            (obj, sol, _, times, itera) = Model.solve_milp_cutting_plane()
+            (obj, sol, _, times, itera) = Model.solve_milp_cutting_plane(
+                    upper_cutoff=upper_cutoff, lower_cutoff=lower_cutoff,
+                    upper_gap=upper_gap, lower_gap=lower_gap, big_m=big_m,
+                    small_m=small_m)
 
             # Record trial statistics
             results[9] = times[0]
@@ -145,7 +170,10 @@ def single_trial(input_file, output_directory, overwrite=False):
             Model = sl.TrialSolver(input_file)
 
             # Solve trilevel model
-            (obj, sol, _, times, itera) = Model.solve_lp_cutting_plane()
+            (obj, sol, _, times, itera) = Model.solve_lp_cutting_plane(
+                    upper_cutoff=upper_cutoff, lower_cutoff=lower_cutoff,
+                    upper_gap=upper_gap, lower_gap=lower_gap, big_m=big_m,
+                    small_m=small_m)
             lp_sol = sol # save solution for comparison with MILP
 
             # Record trial statistics
@@ -170,7 +198,9 @@ def single_trial(input_file, output_directory, overwrite=False):
             Model = sl.TrialSolver(input_file)
 
             # Solve trilevel model
-            (_, sol, _, times, itera) = Model.solve_lp_duality()
+            (_, sol, _, times, itera) = Model.solve_lp_duality(
+                    upper_cutoff=upper_cutoff, upper_gap=upper_gap,
+                    big_m=big_m)
 
             # Record trial statistics
             results[16] = times[0]
@@ -192,7 +222,7 @@ def single_trial(input_file, output_directory, overwrite=False):
             Model = sl.TrialSolver(input_file)
 
             # Solve bilevel model with LP defense
-            (obj, _, _, _) = Model.solve_milp_defend(lp_sol)
+            (obj, _, _, _) = Model.solve_milp_defend(lp_sol, big_m=small_m)
 
             # Record objective
             results[19] = obj
@@ -204,7 +234,10 @@ def single_trial(input_file, output_directory, overwrite=False):
     _write_summary(output_directory+"summary.txt", line, overwrite=overwrite)
 
 #==============================================================================
-def trial_list(input_list, output_directory, overwrite=False):
+def trial_list(input_list, output_directory, overwrite=False,
+               upper_cutoff=100, lower_cutoff=100, upper_gap=0.01,
+               lower_gap=0.01, cplex_epsilon=0.001, big_m=1.0e16,
+               small_m=1.0e10):
     """Processes a list of trial instances.
 
     Runs a collection of tests on a list of trial instances and writes the
@@ -223,6 +256,21 @@ def trial_list(input_list, output_directory, overwrite=False):
             output files will be overwritten before beginning the trial set.
             All remaining trials in the set will be added to the existing
             output files.
+        upper_cutoff -- Iteration cutoff for the upper-level cutting plane main
+            loop. Defaults to 100.
+        upper_gap -- Optimality gap tolerance for the upper-level cutting plane
+            main loop. Defaults to 0.01.
+        lower_cutoff -- Iteration cutoff for the lower-level cutting plane main
+            loop (if applicable). Defaults to 100.
+        lower_gap -- Optimality gap tolerance for the lower-level cutting plane
+            main loop (if applicable). Defaults to 0.01.
+        big_m -- Large constant for use in the big-M method. Should be chosen
+            to be significantly larger than the largest objective allowed to be
+            returned by the lower-level submodel. Defaults to 1.0e16.
+        small_m -- Big-M constant for use in the lower-level model. Should
+            still be larger than any reasonable values produced by the solution
+            algorithm, but significantly smaller than big_m. Defaults to
+            1.0e10.
     """
 
     over = overwrite # initial overwrite setting
@@ -235,7 +283,10 @@ def trial_list(input_list, output_directory, overwrite=False):
 
     # Process each trial on the list
     for i in range(len(trials)):
-        single_trial(trials[i], output_directory, overwrite=over)
+        single_trial(trials[i], output_directory, overwrite=over,
+                     upper_cutoff=upper_cutoff, upper_gap=upper_gap,
+                     lower_cutoff=lower_cutoff, lower_gap=lower_gap,
+                     big_m=big_m, small_m=small_m)
         over = False # stop overwriting after first trial
 
     print("\nAll trials processed!")
@@ -283,12 +334,11 @@ def _write_sol(file_name, trial_name, vector, overwrite=False):
 
     Accepts the following optional keyword arguments:
         overwrite -- Selects whether to overwrite the existing output file. If
-            True, creates a new file with a new comment line and deletes any
-            existing copy. If False, appends line to an existing file. Defaults
-            to False.
+            True, creates a new file and deletes any existing copy. If False,
+            appends line to an existing file. Defaults to False.
     """
 
-    # Set file writing mode based on ovewrite option
+    # Set file writing mode based on overwrite option
     m = 'a'
     if overwrite == True:
         m = 'w'
@@ -331,4 +381,9 @@ def refresh_files(directory):
 #single_trial("problems/smallnet.min", "results/", overwrite=True)
 #refresh_files("results/")
 #trial_list("trial_list.txt", "results/", overwrite=True)
-single_trial("problems/smalltest.min", "results/", overwrite=True)
+
+testfiles = ["problems/smalltest_node.min"]#["problems/smalltest.min", "problems/bigtest.min"]
+for tf in testfiles:
+    print("\n"+"#"*60+"\nTesting "+tf+"\n"+"#"*60+"\n")
+    single_trial(tf, "results/", overwrite=True, upper_cutoff=5,
+                 lower_cutoff=10, upper_gap=100, lower_gap=100)

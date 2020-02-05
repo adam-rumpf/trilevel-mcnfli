@@ -14,6 +14,8 @@ binary interdependence model.
 
 import cplex
 
+import upper.lower.network.network as net
+
 #==============================================================================
 class LLCuttingPlane:
     """Class to implement the cutting plane method for the lower LP or MILP.
@@ -31,7 +33,7 @@ class LLCuttingPlane:
     def __init__(self, net_in, mode, big_m=1.0e10):
         """LP or MILP cutting plane solution object constructor.
 
-        Ininitializes the Cplex objects associated with the lower-level
+        Initializes the Cplex objects associated with the lower-level
         subproblem, which is constructed either as the LP or the MILP version
         of the interdependent network flows program, depending on the selected
         option.
@@ -101,10 +103,11 @@ class LLCuttingPlane:
         self.att_vars = ["at("+str(a.id)+")" for a in self.Net.att_arcs]
         self.pen_vars = ["pt("+str(a.id)+")" for a in self.Net.att_arcs]
 
-        # Add objective bound variable to Cplex object
+        # Add objective bound variable to Cplex object, with a finite but large
+        # upper bound in order to ensure dual feasibility
         self.UpperModel.variables.add(obj=[1.0], names=[self.obj_var],
                                       lb=[-cplex.infinity],
-                                      ub=[cplex.infinity])
+                                      ub=[1000*self.big_m])
 
         # Add binary attack decision variables to Cplex object
         self.UpperModel.variables.add(names=self.att_vars,
@@ -137,25 +140,36 @@ class LLCuttingPlane:
         # Define penalty variable constraints to limit value when activated
         pen_expr = [[[v], [1]] for v in self.pen_vars]
 
-        # Add attack constraints to Cplex object
+        # Add attack constraints to Cplex object, using equality for the attack
+        # bound in order to reduce the number of feasible solutions
         self.UpperModel.linear_constraints.add(names=self.att_con,
                                                lin_expr=att_expr,
                                                senses=att_sense, rhs=att_rhs)
         self.UpperModel.linear_constraints.add(names=["ab"],
                                                lin_expr=att_lim_expr,
-                                               senses=["L"],
+                                               senses=["E"],
                                                rhs=[self.Net.att_limit])
 
         # Add penalty variable indicator constraints to Cplex object
-        self.UpperModel.indicator_constraints.add_batch(name=pen_con,
-                                       indvar=self.att_vars,
-                                       complemented=[1 for a in self.att_vars],
-                                       lin_expr=pen_expr,
-                                       sense=["L" for a in self.att_vars],
-                                       rhs=[0.0 for a in self.att_vars])
+        ###
+#        self.UpperModel.indicator_constraints.add_batch(name=pen_con,
+#                                       indvar=self.att_vars,
+#                                       complemented=[1 for a in self.att_vars],
+#                                       lin_expr=pen_expr,
+#                                       sense=["L" for a in self.att_vars],
+#                                       rhs=[0.0 for a in self.att_vars])
+        for i in range(len(pen_con)):
+            self.UpperModel.indicator_constraints.add(name=pen_con[i],
+                                                      indvar=self.att_vars[i],
+                                                      complemented=1,
+                                                      lin_expr=pen_expr[i],
+                                                      sense="L",
+                                                      rhs=0.0)
 
         # Keep track of the number of side constraints generated so far
         self.side_constraints = 0
+
+        self.UpperModel.write("UpperModel.lp")###
 
     #--------------------------------------------------------------------------
     def _lower_cplex_setup(self, mode):
@@ -211,7 +225,7 @@ class LLCuttingPlane:
 
         # Define sense strings for common constraints (== for flow
         # conservation, <= for all others)
-        flow_con_sense = "E"*len(flow_con)
+        flow_con_sense = ["E" for c in flow_con]
         flow_att_sense = "L"*len(self.flow_att)
 
         # Define common constraint righthand sides
@@ -239,6 +253,16 @@ class LLCuttingPlane:
         flow_att_expr = [[[self.flow_vars[a.id]], [1.0]]
                          for a in self.Net.att_arcs]
 
+        # If using nodes as parents, relax supply constraints
+        if self.Net.parent_type == 0:
+            flow_con_lb = []
+            flow_con_lb_expr = []
+            for i in range(len(flow_con_sense)):
+                if self.Net.nodes[i].supply > 0:
+                    flow_con_sense[i] = "L"
+                    flow_con_lb.append("lb"+flow_con[i])
+                    flow_con_lb_expr.append(flow_con_expr[i])
+
         # Add common constraints to Cplex object
         self.LowerModel.linear_constraints.add(names=flow_con,
                                                lin_expr=flow_con_expr,
@@ -248,6 +272,12 @@ class LLCuttingPlane:
                                                lin_expr=flow_att_expr,
                                                senses=flow_att_sense,
                                                rhs=flow_att_rhs)
+        if self.Net.parent_type == 0:
+            self.LowerModel.linear_constraints.add(names=flow_con_lb,
+                                                   lin_expr=flow_con_lb_expr,
+                                                   senses="G"*len(flow_con_lb),
+                                                   rhs=[0.0 for i in
+                                                      range(len(flow_con_lb))])
 
         # Add interdependencies for chosen model type
         if mode == 1:
@@ -298,12 +328,20 @@ class LLCuttingPlane:
             child_expr = [[[self.flow_vars[a.id]], [1]] for a in children]
 
             # Add interdependency indicator constraints to Cplex object
-            self.LowerModel.indicator_constraints.add_batch(name=child_con,
-                                             indvar=slack_vars,
-                                             complemented=[0 for a in parents],
-                                             lin_expr=child_expr,
-                                             sense=["L" for a in parents],
-                                             rhs=[0.0 for a in children])
+            ###
+#            self.LowerModel.indicator_constraints.add_batch(name=child_con,
+#                                             indvar=slack_vars,
+#                                             complemented=[0 for a in parents],
+#                                             lin_expr=child_expr,
+#                                             sense=["L" for a in parents],
+#                                             rhs=[0.0 for a in children])
+            for i in range(len(child_con)):
+                self.LowerModel.indicator_constraints.add(name=child_con[i],
+                                                        indvar=slack_vars[i],
+                                                        complemented=0,
+                                                        lin_expr=child_expr[i],
+                                                        sense="L",
+                                                        rhs=0.0)
 
         elif mode == 2:
 
@@ -340,6 +378,8 @@ class LLCuttingPlane:
                                                    lin_expr=flow_int_expr,
                                                    senses=flow_int_sense,
                                                    rhs=flow_int_rhs)
+
+        self.LowerModel.write("LowerModel.lp")###
 
     #--------------------------------------------------------------------------
     def solve(self, defend, cutoff=100, gap=0.01, cplex_epsilon=0.001):
@@ -404,17 +444,23 @@ class LLCuttingPlane:
                                                    cplex_epsilon=cplex_epsilon)
 
         ###
-        print("rho1 = "+str(obj_lb))
+        print("rho3 = "+str(obj_lb))
 
         obj_gap = abs(obj_ub - obj_lb) # current optimality gap
 
         ###
         print("Optimality gap = "+str(obj_gap))
 
+        if feasible == False:
+            print("Response problem infeasible.")
+            obj_ub = self.big_m
+            obj_lb = self.big_m
+            status = 1
+
         #----------------------------------------------------------------------
         # Main cutting plane loop begin
 
-        while (iteration < cutoff) and (obj_gap > gap):
+        while (iteration < cutoff) and (obj_gap > gap) and (feasible == True):
 
             iteration += 1
 
@@ -443,7 +489,7 @@ class LLCuttingPlane:
                 break
 
             ###
-            print("rho1 = "+str(obj_lb))
+            print("rho3 = "+str(obj_lb))
 
             # Recalculate the optimality gap
             obj_gap = abs(obj_ub - obj_lb)
@@ -452,12 +498,15 @@ class LLCuttingPlane:
             print("Optimality gap = "+str(obj_gap))
 
             if (iteration >= cutoff) and (obj_gap > gap):
+                # If ending due to iteration cutoff without reaching optimality
+                # gap, use average of bounds as the best guess
                 status = 3
+                obj_lb = (obj_ub+obj_lb)/2
 
         # Main cutting plane loop end
         #----------------------------------------------------------------------
 
-        return ((obj_ub+obj_lb)/2, destroy, status, iteration)
+        return (obj_lb, destroy, status, iteration)
 
     #--------------------------------------------------------------------------
     def _upper_solve(self, defend=[], cplex_epsilon=0.001):
@@ -495,14 +544,25 @@ class LLCuttingPlane:
         # Solve the MILP
         self.UpperModel.solve()
 
+        ###
+        if self.UpperModel.solution.is_primal_feasible() == True:
+            print("Upper-level primal feasible.")
+        else:
+            print("Upper-level primal infeasible.")
+        if self.UpperModel.solution.is_dual_feasible() == True:
+            print("Upper-level dual feasible.")
+        else:
+            print("Upper-level dual infeasible.")
+
         # Get the objective value
         obj = self.UpperModel.solution.get_objective_value()
 
         # Set unbounded objective value to infinity (CPLEX returns an objective
         # of 0.0 for unbounded primal problems)
-        if ((obj == 0.0) and
-            (self.UpperModel.solution.is_primal_feasible() == True)):
-            obj = cplex.infinity
+        ###
+#        if ((obj == 0.0) and
+#            (self.UpperModel.solution.is_primal_feasible() == True)):
+#            obj = cplex.infinity
 
         # Get the solution vector
         destroy = [False for a in self.Net.att_arcs]
@@ -551,6 +611,16 @@ class LLCuttingPlane:
         # Solve the LP or MILP
         self.LowerModel.solve()
 
+        ###
+        if self.LowerModel.solution.is_primal_feasible() == True:
+            print("Lower-level primal feasible.")
+        else:
+            print("Lower-level primal infeasible.")
+        if self.LowerModel.solution.is_dual_feasible() == True:
+            print("Lower-level dual feasible.")
+        else:
+            print("Lower-level dual infeasible.")
+
         # Set up containers for objective, nonzero flow indicator, and
         # feasibility status
         obj = cplex.infinity
@@ -564,6 +634,8 @@ class LLCuttingPlane:
             for i in range(len(self.Net.arcs)):
                 if self.LowerModel.solution.get_values(self.flow_vars[i]) > 0:
                     nonzero[i] = True
+
+        self.LowerModel.write("LowerModel.lp")###
 
         return (obj, nonzero, status)
 
@@ -600,6 +672,8 @@ class LLCuttingPlane:
                 senses=["L"], rhs=[objective])
         self.side_constraints += 1
 
+        self.UpperModel.write("UpperModel.lp")###
+
     #--------------------------------------------------------------------------
     def end(self):
         """Closes all internal Cplex models.
@@ -614,7 +688,6 @@ class LLCuttingPlane:
 ### For testing (delete later)
 
 if __name__ == "__main__":
-    import network.network as net
     TestNet = net.Network("../../../problems/smallnet.min")
     TestSolver = LLCuttingPlane(TestNet, 1)
     PrintSolver = LLCuttingPlane(TestNet, 2)

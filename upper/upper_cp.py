@@ -12,12 +12,9 @@ here to select which solution method to use for the lower-level.
 import cplex
 import time
 
-if __name__ == "__main__":
-    import method.milp_lp_cp as milpcp
-    import method.lp_dual as lpd
-else:
-    import solver.upper.method.milp_lp_cp as milpcp
-    import solver.upper.method.lp_dual as lpd
+import upper.lower.network.network as net
+import upper.lower.milp_lp_cp as milpcp
+import upper.lower.lp_dual as lpd
 
 #==============================================================================
 class UpperLevel:
@@ -33,12 +30,12 @@ class UpperLevel:
     Includes a public method solve_lower() for solving the lower-level problem
     associated with a given upper-level decision. This is used repeatedly
     within the overall cutting plane solution process, but it can also be
-    called on its own to evaluate a single defensive deicsion, for example to
+    called on its own to evaluate a single defensive decision, for example to
     evaluate the optimality gap of a heuristically-chosen defense.
     """
 
     #--------------------------------------------------------------------------
-    def __init__(self, net_in, method, big_m=1.0e16):
+    def __init__(self, net_in, method, big_m=1.0e16, small_m=1.0e10):
         """Solution object constructor.
 
         Initializes a lower-level model object corresponding to the chosen
@@ -58,6 +55,10 @@ class UpperLevel:
                 chosen to be significantly larger than the largest objective
                 allowed to be returned by the lower-level submodel. Defaults to
                 1.0e16.
+            small_m -- Big-M constant for use in the lower-level model. Should
+                still be larger than any reasonable values produced by the
+                solution algorithm, but significantly smaller than big_m.
+                Defaults to 1.0e10.
         """
 
         self.Net = net_in # set reference to network object
@@ -65,14 +66,13 @@ class UpperLevel:
         self.method = method # store method ID for reference
 
         # Initialize the chosen type of lower-level solver
-        if self.method == 1:
-            self.LowerLevel = milpcp.LLCuttingPlane(self.Net, 1)
-        elif self.method == 2:
-            self.LowerLevel = milpcp.LLCuttingPlane(self.Net, 2)
+        if self.method in {1, 2}:
+            self.LowerLevel = milpcp.LLCuttingPlane(self.Net, self.method,
+                                                    big_m=small_m)
         elif self.method == 3:
-            self.LowerLevel = lpd.LLDuality(self.Net)
+            self.LowerLevel = lpd.LLDuality(self.Net, big_m=small_m)
 
-        # Initialize Cplex object
+        # Initialize top-level Cplex object
         self._cplex_setup()
 
     #--------------------------------------------------------------------------
@@ -116,9 +116,13 @@ class UpperLevel:
         self.def_vars = ["df("+str(a.id)+")" for a in self.Net.def_arcs]
         self.pen_vars = ["pt("+str(a.id)+")" for a in self.Net.def_arcs]
 
-        # Add objective bound variable to Cplex object
+        # Solve lower-level response model for an objective lower bound
+        (obj_lb, _) = self.initial_solve()
+
+        # Add objective bound variable to Cplex object, with a finite but large
+        # lower bound in order to ensure dual feasibility
         self.TopModel.variables.add(obj=[1.0], names=[self.obj_var],
-                                    lb=[-cplex.infinity],
+                                    lb=[obj_lb],
                                     ub=[cplex.infinity])
 
         # Add binary defense decision variables to Cplex object
@@ -140,22 +144,33 @@ class UpperLevel:
         # Define penalty variable constraints to limit value when activated
         pen_expr = [[[v], [1]] for v in self.pen_vars]
 
-        # Add defense constraints to Cplex object
+        # Add defense constraints to Cplex object, using equality to reduce the
+        # number of feasible solutions
         self.TopModel.linear_constraints.add(names=["db"],
                                              lin_expr=def_lim_expr,
-                                             senses=["L"],
+                                             senses=["E"],
                                              rhs=[self.Net.def_limit])
 
         # Add penalty variable indicator constraints to Cplex object
-        self.TopModel.indicator_constraints.add_batch(name=pen_con,
-                                       indvar=self.def_vars,
-                                       complemented=[1 for a in self.def_vars],
-                                       lin_expr=pen_expr,
-                                       sense=["L" for a in self.def_vars],
-                                       rhs=[0.0 for a in self.def_vars])
+        ###
+#        self.TopModel.indicator_constraints.add_batch(name=pen_con,
+#                                       indvar=self.def_vars,
+#                                       complemented=[1 for a in self.def_vars],
+#                                       lin_expr=pen_expr,
+#                                       sense=["L" for a in self.def_vars],
+#                                       rhs=[0.0 for a in self.def_vars])
+        for i in range(len(pen_con)):
+            self.TopModel.indicator_constraints.add(name=pen_con[i],
+                                                    indvar=self.def_vars[i],
+                                                    complemented=1,
+                                                    lin_expr=pen_expr[i],
+                                                    sense="L",
+                                                    rhs=0.0)
 
         # Keep track of the number of side constraints generated so far
         self.side_constraints = 0
+
+        self.TopModel.write("TopModel.lp")###
 
     #--------------------------------------------------------------------------
     def solve(self, cutoff=100, lower_cutoff=100, gap=0.01, lower_gap=0.01,
@@ -210,17 +225,18 @@ class UpperLevel:
         # Solve the upper-level problem for an initial solution
         timer = time.time()
         (obj_lb, defend) = self._upper_solve(cplex_epsilon=cplex_epsilon)
-        print(self.TopModel.solution.get_values())###
+        print("Defend: "+str([int(d) for d in defend]))###
         upper_time += time.time() - timer
 
         ###
-        print("\nrho3 = "+str(obj_lb))
+        print("\nrho1 = "+str(obj_lb))
 
         # Find the lower-level response for the given attack vector
         timer = time.time()
         (obj_ub, destroy, status, lower_iterations) = self.lower_solve(defend,
                cutoff=lower_cutoff, gap=lower_gap, cplex_epsilon=cplex_epsilon)
         lower_time += time.time() - timer
+        print("Attack: "+str([int(d) for d in destroy]))###
 
         ###
         print("\n"+"="*60)
@@ -250,11 +266,11 @@ class UpperLevel:
             upper_time += time.time() - timer
 
             ###
-            print(self.TopModel.solution.get_values())
-            print(defend)
+            print("Defend: "+str([int(d) for d in defend]))
+            ###print(defend)
 
             ###
-            print("rho3 = "+str(obj_lb))
+            print("rho1 = "+str(obj_lb))
 
             # Re-solve the lower-level response
             timer = time.time()
@@ -262,6 +278,7 @@ class UpperLevel:
                cutoff=lower_cutoff, gap=lower_gap, cplex_epsilon=cplex_epsilon)
             lower_time += time.time() - timer
             lower_iterations += li
+            print("Attack: "+str([int(d) for d in destroy]))###
 
             # Break in case of lower-level error
             if status == 2:
@@ -279,13 +296,16 @@ class UpperLevel:
             print("Optimality gap = "+str(obj_gap))
 
             if (iteration >= cutoff) and (obj_gap > gap):
+                # If ending due to iteration cutoff without reaching optimality
+                # gap, use average of bounds as the best guess
                 exit_status = 3
+                obj_ub = (obj_ub+obj_lb)/2
 
         # Main cutting plane loop end
         #----------------------------------------------------------------------
 
-        return ((obj_ub+obj_lb)/2, defend, destroy, (upper_time, lower_time),
-                (iteration, lower_iterations), exit_status)
+        return (obj_ub, defend, destroy, (upper_time, lower_time), (iteration,
+                lower_iterations), exit_status)
 
     #--------------------------------------------------------------------------
     def _upper_solve(self, cplex_epsilon=0.001):
@@ -313,14 +333,25 @@ class UpperLevel:
         # Solve the MILP
         self.TopModel.solve()
 
+        ###
+        if self.TopModel.solution.is_primal_feasible() == True:
+            print("Top-level primal feasible.")
+        else:
+            print("Top-level primal infeasible.")
+        if self.TopModel.solution.is_dual_feasible() == True:
+            print("Top-level dual feasible.")
+        else:
+            print("Top-level dual infeasible.")
+
         # Get the objective value
         obj = self.TopModel.solution.get_objective_value()
 
         # Set unbounded objective value to infinity (CPLEX returns an objective
         # of 0.0 for unbounded primal problems)
-        if ((obj == 0.0) and
-            (self.TopModel.solution.is_primal_feasible() == True)):
-            obj = -cplex.infinity
+        ###
+#        if ((obj == 0.0) and
+#            (self.TopModel.solution.is_primal_feasible() == True)):
+#            obj = -cplex.infinity
 
         # Get the solution vector
         defend = [False for a in self.Net.def_arcs]
@@ -359,6 +390,8 @@ class UpperLevel:
             iterations -- Number of iterations of the lower-level algorithm's
                 cutting plane loop (0 if not applicable).
         """
+
+        input("Press [Enter] to continue...")###
 
         # Call the appropriate lower-level solver and return its results
         return self.LowerLevel.solve(defend, cutoff=cutoff, gap=gap,
@@ -400,6 +433,46 @@ class UpperLevel:
                 senses=["G"], rhs=[obj])
         self.side_constraints += 1
 
+        self.TopModel.write("TopModel.lp")###
+
+    #--------------------------------------------------------------------------
+    def initial_solve(self):
+        """Solves the initial lower-level network flows problem.
+
+        The initial value of the final response problem gives a lower bound to
+        the defender's objective value. We begin the solution process of the
+        overall trilevel model by solving the underlying MILP or LP with no
+        attack decisions made.
+
+        Returns a tuple containing the following elements:
+            objective -- Objective value of the lower-level bilevel program.
+            status -- Numerical code to describe the results of the solution
+                process, including the following:
+                    0: Successful exit with feasible MILP.
+                    1: Successful exit with infeasible MILP.
+                    2: Exit due to error.
+        """
+
+        if self.method in {1, 2}:
+            # If using the LP or MILP cutting plane method, we can use the
+            # existing lower-level model object's own methods
+            (obj, _, feas) = self.LowerLevel.lower_solve(destroy=[])
+        elif self.method == 3:
+            # Otherwise we instantiate a temporary LP solver object to
+            # calculate the initial value
+            Lp = milpcp.LLCuttingPlane(self.Net, 2)
+            (obj, _, feas) = Lp.lower_solve(destroy=[])
+            Lp.end()
+
+        status = 0
+        if feas == False:
+            status = 1
+
+        ###
+        print("Obtained an initial objective value of "+str(obj))
+
+        return (obj, status)
+
     #--------------------------------------------------------------------------
     def end(self):
         """Closes all internal Cplex models.
@@ -415,7 +488,6 @@ class UpperLevel:
 ### For testing (delete later)
 
 if __name__ == "__main__":
-    import method.network.network as net
     TestNet = net.Network("../../problems/smallnet.min")
     TestSolver = UpperLevel(TestNet, 3)
 

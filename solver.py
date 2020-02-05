@@ -11,14 +11,9 @@ for comparison.
 import gc
 import time
 
-if __name__ == "__main__":
-    import upper.upper_cp as ucp
-    import upper.method.milp_lp_cp as milpcp
-    import upper.method.network.network as net
-else:
-    import solver.upper.upper_cp as ucp
-    import solver.upper.method.milp_lp_cp as milpcp
-    import solver.upper.method.network.network as net
+import upper.upper_cp as ucp
+import upper.lower.milp_lp_cp as milpcp
+import upper.lower.network.network as net
 
 #==============================================================================
 class TrialSolver:
@@ -50,7 +45,8 @@ class TrialSolver:
 
     #--------------------------------------------------------------------------
     def solve_milp_cutting_plane(self, upper_cutoff=100, lower_cutoff=100,
-                                 upper_gap=0.01, lower_gap=0.01):
+                                 upper_gap=0.01, lower_gap=0.01, big_m=1.0e16,
+                                 small_m=1.0e10):
         """Solves the trilevel model using the MILP cutting plane algorithm.
 
         Creates an upper-level solver object associated with the problem
@@ -66,6 +62,14 @@ class TrialSolver:
                 main loop (if applicable). Defaults to 100.
             lower_gap -- Optimality gap tolerance for the lower-level cutting
                 plane main loop (if applicable). Defaults to 0.01.
+            big_m -- Large constant for use in the big-M method. Should be
+                chosen to be significantly larger than the largest objective
+                allowed to be returned by the lower-level submodel. Defaults to
+                1.0e16.
+            small_m -- Big-M constant for use in the lower-level model. Should
+                still be larger than any reasonable values produced by the
+                solution algorithm, but significantly smaller than big_m.
+                Defaults to 1.0e10.
 
         Returns a tuple containing the following elements:
             objective -- Objective value of the trilevel program.
@@ -82,7 +86,7 @@ class TrialSolver:
         gc.collect()
 
         # Initialize a temporary upper-level solver object
-        Up = ucp.UpperLevel(self.Net, 1)
+        Up = ucp.UpperLevel(self.Net, 1, big_m=big_m, small_m=small_m)
 
         # Apply solver, save defense, and time entire process
         tot = time.time()
@@ -100,7 +104,8 @@ class TrialSolver:
 
     #--------------------------------------------------------------------------
     def solve_lp_cutting_plane(self, upper_cutoff=100, lower_cutoff=100,
-                               upper_gap=0.01, lower_gap=0.01):
+                               upper_gap=0.01, lower_gap=0.01, big_m=1.0e16,
+                               small_m=1.0e10):
         """Solves the trilevel model using the LP cutting plane algorithm.
 
         Creates an upper-level solver object associated with the problem
@@ -116,6 +121,14 @@ class TrialSolver:
                 main loop (if applicable). Defaults to 100.
             lower_gap -- Optimality gap tolerance for the lower-level cutting
                 plane main loop (if applicable). Defaults to 0.01.
+            big_m -- Large constant for use in the big-M method. Should be
+                chosen to be significantly larger than the largest objective
+                allowed to be returned by the lower-level submodel. Defaults to
+                1.0e16.
+            small_m -- Big-M constant for use in the lower-level model. Should
+                still be larger than any reasonable values produced by the
+                solution algorithm, but significantly smaller than big_m.
+                Defaults to 1.0e10.
 
         Returns a tuple containing the following elements:
             objective -- Objective value of the trilevel program.
@@ -132,7 +145,7 @@ class TrialSolver:
         gc.collect()
 
         # Initialize a temporary upper-level solver object
-        Up = ucp.UpperLevel(self.Net, 2)
+        Up = ucp.UpperLevel(self.Net, 2, big_m=big_m, small_m=small_m)
 
         # Apply solver, save defense, and time entire process
         tot = time.time()
@@ -149,7 +162,7 @@ class TrialSolver:
                 iterations)
 
     #--------------------------------------------------------------------------
-    def solve_lp_duality(self, upper_cutoff=100, upper_gap=0.01):
+    def solve_lp_duality(self, upper_cutoff=100, upper_gap=0.01, big_m=1.0e16):
         """Solves the trilevel model using the LP duality algorithm.
 
         Creates an upper-level solver object associated with the problem
@@ -161,6 +174,10 @@ class TrialSolver:
                 main loop. Defaults to 100.
             upper_gap -- Optimality gap tolerance for the upper-level cutting
                 plane main loop. Defaults to 0.01.
+            big_m -- Large constant for use in the big-M method. Should be
+                chosen to be significantly larger than the largest objective
+                allowed to be returned by the lower-level submodel. Defaults to
+                1.0e16.
 
         Returns a tuple containing the following elements:
             objective -- Objective value of the trilevel program.
@@ -177,7 +194,7 @@ class TrialSolver:
         gc.collect()
 
         # Initialize a temporary upper-level solver object
-        Up = ucp.UpperLevel(self.Net, 3)
+        Up = ucp.UpperLevel(self.Net, 3, big_m=big_m)
 
         # Apply solver, save defense, and time entire process
         tot = time.time()
@@ -193,7 +210,7 @@ class TrialSolver:
                 iterations)
 
     #--------------------------------------------------------------------------
-    def solve_milp_defend(self, defend, cutoff=100, gap=0.01):
+    def solve_milp_defend(self, defend, cutoff=100, gap=0.01, big_m=1.0e10):
         """Calculates the MILP solution for a given defensive decision.
 
         Requires the following positional arguments:
@@ -206,6 +223,10 @@ class TrialSolver:
             gap -- Optimality gap tolerance for the overall cutting plane main
                 loop. Defaults to 0.01. Used only for cutting plane lower-
                 level methods.
+            big_m -- Large constant for use in the big-M method. Should be
+                chosen to be significantly larger than the largest objective
+                allowed to be returned by the lower-level submodel. Defaults to
+                1.0e10.
 
         Returns a tuple containing the following elements:
             objective -- Objective value of the lower-level bilevel program.
@@ -223,7 +244,7 @@ class TrialSolver:
         gc.collect()
 
         # Initialize a temporary upper-level solver object
-        Up = ucp.UpperLevel(self.Net, 1)
+        Up = ucp.UpperLevel(self.Net, 1, small_m=big_m)
 
         # Get lower level solution for specified defense
         out = Up.lower_solve(defend, cutoff=cutoff, gap=gap)
@@ -254,7 +275,7 @@ class TrialSolver:
         Milp = milpcp.LLCuttingPlane(self.Net, 1)
 
         # Get lower level solution with no attacks made
-        (obj, _, feas) = Milp.lower_solve([])
+        (obj, _, feas) = Milp.lower_solve(destroy=[])
 
         status = 0
         if feas == False:
@@ -270,7 +291,7 @@ class TrialSolver:
 ### For testing (delete later)
 
 if __name__ == "__main__":
-    TestSolver = TrialSolver("../problems/smallnet.min")
+    TestSolver = TrialSolver("problems/smallnet.min")
 
     #print(TestSolver.solve_milp_cutting_plane())
     #print(TestSolver.solve_lp_cutting_plane())
