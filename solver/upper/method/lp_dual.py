@@ -243,8 +243,6 @@ class LLDuality:
         # Clean up the model
         self.DualModel.cleanup(cplex_epsilon)
 
-        status = 0 # exit code
-
         # Update constraints based on arc defense vector
         if len(defend) == len(self.Net.def_arcs):
             new_rhs = [1 for a in self.Net.def_arcs]
@@ -270,20 +268,38 @@ class LLDuality:
             print("Lower-level dual infeasible.")
 
         # Get the objective value
-        obj = self.DualModel.solution.get_objective_value()
+#        obj = self.DualModel.solution.get_objective_value()
 
         # Set unbounded objective value to infinity (CPLEX returns an objective
         # of 0.0 for unbounded problems)
-        if ((obj == 0.0 or obj >= 0.1*self.big_m) and
-            (self.DualModel.solution.is_primal_feasible() == True)):
-            obj = cplex.infinity
-            status = 1
+        ###
+#        if ((obj == 0.0 or obj >= 0.1*self.big_m) and
+#            (self.DualModel.solution.is_primal_feasible() == True)):
+#            obj = cplex.infinity
+#            status = 1
 
-        # Get the solution vector
-        destroy = [False for a in self.Net.att_arcs]
-        for i in range(len(self.Net.att_arcs)):
-            if self.DualModel.solution.get_values(self.att_vars[i]) == 1:
-                destroy[i] = True
+        # Get objective value and solution vector
+        if self.DualModel.solution.is_dual_feasible() == True:
+            # If dual feasible then the primal is bounded and we can return the
+            # objective and solution found by CPLEX
+            status = 0
+            obj = self.DualModel.solution.get_objective_value()
+            destroy = [False for a in self.Net.att_arcs]
+            for i in range(len(self.Net.att_arcs)):
+                if self.DualModel.solution.get_values(self.att_vars[i]) == 1:
+                    destroy[i] = True
+        else:
+            # Otherwise the primal is unbounded and we return an infinite
+            # objective and an attack vector that is the exact inverse of the
+            # input defense vector (this will prevent the defender from
+            # repeating exactly the same defense that led to an infeasible
+            # response problem)
+            status = 1
+            obj = cplex.infinity
+            destroy = [True for a in self.Net.att_arcs]
+            for i in range(len(self.Net.def_arcs)):
+                if defend[i] == True:
+                    destroy[i] = False
 
         return (obj, destroy, status, 0)
 

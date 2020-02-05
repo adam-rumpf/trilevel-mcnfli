@@ -280,7 +280,7 @@ class TrialSolver:
         Milp = milpcp.LLCuttingPlane(self.Net, 1)
 
         # Get lower level solution with no attacks made
-        (obj, _, feas) = Milp.lower_solve([])
+        (obj, _, feas) = Milp.lower_solve(destroy=[])
 
         status = 0
         if feas == False:

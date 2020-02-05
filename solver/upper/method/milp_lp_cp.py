@@ -480,12 +480,15 @@ class LLCuttingPlane:
             print("Optimality gap = "+str(obj_gap))
 
             if (iteration >= cutoff) and (obj_gap > gap):
+                # If ending due to iteration cutoff without reaching optimality
+                # gap, use average of bounds as the best guess
                 status = 3
+                obj_lb = (obj_ub+obj_lb)/2
 
         # Main cutting plane loop end
         #----------------------------------------------------------------------
 
-        return ((obj_ub+obj_lb)/2, destroy, status, iteration)
+        return (obj_lb, destroy, status, iteration)
 
     #--------------------------------------------------------------------------
     def _upper_solve(self, defend=[], cplex_epsilon=0.001):
@@ -522,6 +525,16 @@ class LLCuttingPlane:
 
         # Solve the MILP
         self.UpperModel.solve()
+
+        ###
+        if self.UpperModel.solution.is_primal_feasible() == True:
+            print("Upper-level primal feasible.")
+        else:
+            print("Upper-level primal infeasible.")
+        if self.UpperModel.solution.is_dual_feasible() == True:
+            print("Upper-level dual feasible.")
+        else:
+            print("Upper-level dual infeasible.")
 
         # Get the objective value
         obj = self.UpperModel.solution.get_objective_value()
@@ -579,6 +592,16 @@ class LLCuttingPlane:
 
         # Solve the LP or MILP
         self.LowerModel.solve()
+
+        ###
+        if self.LowerModel.solution.is_primal_feasible() == True:
+            print("Lower-level primal feasible.")
+        else:
+            print("Lower-level primal infeasible.")
+        if self.LowerModel.solution.is_dual_feasible() == True:
+            print("Lower-level dual feasible.")
+        else:
+            print("Lower-level dual infeasible.")
 
         # Set up containers for objective, nonzero flow indicator, and
         # feasibility status

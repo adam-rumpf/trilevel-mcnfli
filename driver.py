@@ -385,5 +385,5 @@ def refresh_files(directory):
 testfiles = ["problems/smalltestnet.min"]#["problems/smalltest.min", "problems/bigtest.min"]
 for tf in testfiles:
     print("\n"+"#"*60+"\nTesting "+tf+"\n"+"#"*60+"\n")
-    single_trial(tf, "results/", overwrite=True, upper_cutoff=20,
-                 lower_cutoff=40, upper_gap=100, lower_gap=100)
+    single_trial(tf, "results/", overwrite=True, upper_cutoff=30,
+                 lower_cutoff=50, upper_gap=100, lower_gap=100)

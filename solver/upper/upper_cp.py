@@ -69,14 +69,13 @@ class UpperLevel:
         self.method = method # store method ID for reference
 
         # Initialize the chosen type of lower-level solver
-        if self.method == 1:
-            self.LowerLevel = milpcp.LLCuttingPlane(self.Net, 1, big_m=small_m)
-        elif self.method == 2:
-            self.LowerLevel = milpcp.LLCuttingPlane(self.Net, 2, big_m=small_m)
+        if self.method in {1, 2}:
+            self.LowerLevel = milpcp.LLCuttingPlane(self.Net, self.method,
+                                                    big_m=small_m)
         elif self.method == 3:
             self.LowerLevel = lpd.LLDuality(self.Net, big_m=small_m)
 
-        # Initialize Cplex object
+        # Initialize top-level Cplex object
         self._cplex_setup()
 
     #--------------------------------------------------------------------------
@@ -120,10 +119,13 @@ class UpperLevel:
         self.def_vars = ["df("+str(a.id)+")" for a in self.Net.def_arcs]
         self.pen_vars = ["pt("+str(a.id)+")" for a in self.Net.def_arcs]
 
+        # Solve lower-level response model for an objective lower bound
+        (obj_lb, _) = self.initial_solve()
+
         # Add objective bound variable to Cplex object, with a finite but large
         # lower bound in order to ensure dual feasibility
         self.TopModel.variables.add(obj=[1.0], names=[self.obj_var],
-                                    lb=[-1000*self.big_m],
+                                    lb=[obj_lb],
                                     ub=[cplex.infinity])
 
         # Add binary defense decision variables to Cplex object
@@ -297,13 +299,16 @@ class UpperLevel:
             print("Optimality gap = "+str(obj_gap))
 
             if (iteration >= cutoff) and (obj_gap > gap):
+                # If ending due to iteration cutoff without reaching optimality
+                # gap, use average of bounds as the best guess
                 exit_status = 3
+                obj_ub = (obj_ub+obj_lb)/2
 
         # Main cutting plane loop end
         #----------------------------------------------------------------------
 
-        return ((obj_ub+obj_lb)/2, defend, destroy, (upper_time, lower_time),
-                (iteration, lower_iterations), exit_status)
+        return (obj_ub, defend, destroy, (upper_time, lower_time), (iteration,
+                lower_iterations), exit_status)
 
     #--------------------------------------------------------------------------
     def _upper_solve(self, cplex_epsilon=0.001):
@@ -432,6 +437,44 @@ class UpperLevel:
         self.side_constraints += 1
 
         self.TopModel.write("TopModel.lp")###
+
+    #--------------------------------------------------------------------------
+    def initial_solve(self):
+        """Solves the initial lower-level network flows problem.
+
+        The initial value of the final response problem gives a lower bound to
+        the defender's objective value. We begin the solution process of the
+        overall trilevel model by solving the underlying MILP or LP with no
+        attack decisions made.
+
+        Returns a tuple containing the following elements:
+            objective -- Objective value of the lower-level bilevel program.
+            status -- Numerical code to describe the results of the solution
+                process, including the following:
+                    0: Successful exit with feasible MILP.
+                    1: Successful exit with infeasible MILP.
+                    2: Exit due to error.
+        """
+
+        if self.method in {1, 2}:
+            # If using the LP or MILP cutting plane method, we can use the
+            # existing lower-level model object's own methods
+            (obj, _, feas) = self.LowerLevel.lower_solve(destroy=[])
+        elif self.method == 3:
+            # Otherwise we instantiate a temporary LP solver object to
+            # calculate the initial value
+            Lp = milpcp.LLCuttingPlane(self.Net, 2)
+            (obj, _, feas) = Lp.lower_solve(destroy=[])
+            Lp.end()
+
+        status = 0
+        if feas == False:
+            status = 1
+
+        ###
+        print("Obtained an initial objective value of "+str(obj))
+
+        return (obj, status)
 
     #--------------------------------------------------------------------------
     def end(self):
