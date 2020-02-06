@@ -117,6 +117,9 @@ class Network:
                     ls = line.split()
                     tail = self.nodes[int(ls[1])-1]
                     head = self.nodes[int(ls[2])-1]
+                    if (int(ls[2]) == 0) and (self.parent_type == 0):
+                        head = None
+
                     self.arcs.append(_Arc(aid, tail, head, float(ls[4]),
                                           float(ls[5])))
                     aid += 1
@@ -232,12 +235,18 @@ class _Arc:
         self.bound = bound # upper bound
         self.cost = cost # flow cost
 
-        # Add self as an outgoing/incoming arc of the tail/head
+        # Add self as an outgoing/incoming arc of the tail/head (in case of
+        # node parents, no head is defined)
         tail.out_arcs.append(self)
-        head.in_arcs.append(self)
+        if head != None:
+            head.in_arcs.append(self)
 
     #--------------------------------------------------------------------------
     def __str__(self):
         """String method returns Arc ID and endpoint Node IDs."""
 
-        return str(self.id)+" ("+str(self.tail.id)+", "+str(self.head.id)+")"
+        if self.head != None:
+            return (str(self.id)+" ("+str(self.tail.id)+", "+
+                        str(self.head.id)+")")
+        else:
+            return str(self.id)+" ("+str(self.tail.id)+", -1)"
