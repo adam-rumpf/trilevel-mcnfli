@@ -102,7 +102,7 @@ class LLDuality:
         if self.Net.parent_type == 0:
             # Additional dual variables are required for supply nodes in the
             # node parent model
-            supply_vars = ["ns("+str(n.id)+")" for n in supply_nodes]
+            supply_vars = ["ns("+str(n.id)+")" for n in self.Net.nodes]
 
         # Define bounds of node dual variables
         node_vars_lb = [-cplex.infinity for n in self.Net.nodes]
@@ -136,7 +136,8 @@ class LLDuality:
 
         # Add extra dual variables for supply relaxation
         if self.Net.parent_type == 0:
-            self.DualModel.variables.add(names=supply_vars,
+            self.DualModel.variables.add(names=[supply_vars[i]
+                                     for i in range(len(supply_nodes))],
                                      lb=[0.0 for n in supply_nodes],
                                      ub=[cplex.infinity for n in supply_nodes])
 
@@ -187,11 +188,15 @@ class LLDuality:
 
                 # Supply tail
                 elif a.tail.supply > 0:
-                    pass
+                    arc_con_vars[a.id].append(node_vars[a.tail.id])
+                    arc_con_coef[a.id].append(1.0)
+                    arc_con_vars[a.id].append(supply_vars[a.tail.id])
+                    arc_con_coef[a.id].append(-1.0)
 
                 # Nonsupply tail
                 else:
-                    pass
+                    arc_con_vars[a.id].append(node_vars[a.tail.id])
+                    arc_con_coef[a.id].append(-1.0)
 
             # Process all arc heads
             for a in self.Net.arcs:
@@ -202,11 +207,15 @@ class LLDuality:
 
                 # Supply head
                 elif a.head.supply > 0:
-                    pass
+                    arc_con_vars[a.id].append(node_vars[a.head.id])
+                    arc_con_coef[a.id].append(-1.0)
+                    arc_con_vars[a.id].append(supply_vars[a.head.id])
+                    arc_con_coef[a.id].append(-1.0)
 
                 # Nonsupply head
                 else:
-                    pass
+                    arc_con_vars[a.id].append(node_vars[a.head.id])
+                    arc_con_coef[a.id].append(1.0)
 
         # Destructible arcs receive a penalty term
         for i in range(len(self.Net.att_arcs)):

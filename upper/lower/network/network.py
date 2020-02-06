@@ -151,8 +151,8 @@ class Network:
                     ls = line.split()
                     self.att_arcs.append(self.arcs[int(ls[1])-1])
 
-            # If no defensible or destructible arcs were listed, we assume
-            # that all arcs are available
+            # If no defensible or destructible arcs were listed, we assume that
+            # all arcs are available
 
             if len(self.def_arcs) == 0:
                 self.def_arcs[:] = self.arcs[:]
