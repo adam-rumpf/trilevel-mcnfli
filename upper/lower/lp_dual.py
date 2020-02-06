@@ -75,6 +75,15 @@ class LLDuality:
         self.DualModel.objective.set_sense(
             self.DualModel.objective.sense.maximize)
 
+        # If using sink nodes as interdependency parents, the supply values are
+        # relaxed, which leads to a slightly different dual program. We will
+        # generate a list of supply values for use throughout the program.
+        if self.Net.parent_type == 0:
+            supply_nodes = []
+            for n in self.Net.nodes:
+                if n.supply > 0:
+                    supply_nodes.append(n)
+
         # Note: In order to avoid problems with the behavior of CPLEX with
         # big-M constraints, for each attack variable we also define a
         # continuous penalty variable on [0, M] along with an indicator
@@ -90,6 +99,27 @@ class LLDuality:
         node_vars = ["np("+str(n.id)+")" for n in self.Net.nodes]
         int_vars = ["in("+str(i)+")" for i in range(len(self.Net.int))]
         bound_vars = ["ub("+str(a.id)+")" for a in self.Net.arcs]
+        if self.Net.parent_type == 0:
+            # Additional dual variables are required for supply nodes in the
+            # node parent model
+            supply_vars = ["ns("+str(n.id)+")" for n in supply_nodes]
+
+        # Define bounds of node dual variables
+        node_vars_lb = [-cplex.infinity for n in self.Net.nodes]
+        node_vars_ub = [cplex.infinity for n in self.Net.nodes]
+        if self.Net.parent_type == 0:
+            for n in supply_nodes:
+                # The dual variables for supply nodes are nonnegative in the
+                # node parent model
+                node_vars_lb[n.id] = 0.0
+
+        # Define coefficients of node dual variables
+        node_vars_coef = [n.supply for n in self.Net.nodes]
+        if self.Net.parent_type == 0:
+            for n in supply_nodes:
+                # Supply values are negated for supply nodes in the node parent
+                # model
+                node_vars_coef[n.id] = -n.supply
 
         # Add binary attack decision variables to Cplex object
         self.DualModel.variables.add(names=self.att_vars,
@@ -97,14 +127,18 @@ class LLDuality:
 
         # Add attack decision penalty variables to Cplex object
         self.DualModel.variables.add(names=pen_vars,
-                                lb=[0.0 for a in self.Net.att_arcs],
-                                ub=[self.big_m for a in self.Net.att_arcs])
+                                    lb=[0.0 for a in self.Net.att_arcs],
+                                    ub=[self.big_m for a in self.Net.att_arcs])
 
         # Add node potential dual variables to Cplex object
-        self.DualModel.variables.add(obj=[n.supply for n in self.Net.nodes],
-                                  names=node_vars,
-                                  lb=[-cplex.infinity for n in self.Net.nodes],
-                                  ub=[cplex.infinity for n in self.Net.nodes])
+        self.DualModel.variables.add(obj=node_vars_coef, names=node_vars,
+                                     lb=node_vars_lb, ub=node_vars_ub)
+
+        # Add extra dual variables for supply relaxation
+        if self.Net.parent_type == 0:
+            self.DualModel.variables.add(names=supply_vars,
+                                     lb=[0.0 for n in supply_nodes],
+                                     ub=[cplex.infinity for n in supply_nodes])
 
         # Add interdependency dual variables to Cplex object
         self.DualModel.variables.add(names=int_vars,
@@ -125,11 +159,54 @@ class LLDuality:
         # the arc bound dual variable. Destructible arcs also receive a penalty
         # term while interdependent arcs also receive interdependency dual
         # variable terms.
+        # In the arc parent formulation, there is a single type of free dual
+        # variable used in each arc's constraint. In the node parent
+        # formulation there are two nonnegative variables whose difference is
+        # used for each supply node.
 
-        # Common base constraints
-        arc_con_vars = [[node_vars[a.tail.id], node_vars[a.head.id],
-                         bound_vars[a.id]] for a in self.Net.arcs]
-        arc_con_coef = [[-1.0, 1.0, 1.0] for a in self.Net.arcs]
+        # Common base constraints for flow bounds
+        arc_con_vars = [[bound_vars[a.id]] for a in self.Net.arcs]
+        arc_con_coef = [[1.0] for a in self.Net.arcs]
+
+        # Determine endpoint node dual variables depening on model type
+        if self.Net.parent_type == 1:
+            # For arc parents, the dual variables of both endpoints appear
+            arc_con_vars = [[node_vars[a.tail.id], node_vars[a.head.id]]
+                            for a in self.Net.arcs]
+            arc_con_coef = [[-1.0, 1.0] for a in self.Net.arcs]
+        else:
+            # For node parents, the dual variables of the endpoints depend on
+            # whether each endpoint is a source node and whether it is defined.
+
+            # Process all arc tails
+            for a in self.Net.arcs:
+
+                # Undefined tail
+                if a.tail == None:
+                    continue
+
+                # Supply tail
+                elif a.tail.supply > 0:
+                    pass
+
+                # Nonsupply tail
+                else:
+                    pass
+
+            # Process all arc heads
+            for a in self.Net.arcs:
+
+                # Undefined head
+                if a.head == None:
+                    continue
+
+                # Supply head
+                elif a.head.supply > 0:
+                    pass
+
+                # Nonsupply head
+                else:
+                    pass
 
         # Destructible arcs receive a penalty term
         for i in range(len(self.Net.att_arcs)):
@@ -184,13 +261,6 @@ class LLDuality:
                                               rhs=[self.Net.att_limit])
 
         # Add penalty variable indicator constraints to Cplex object
-        ###
-#        self.DualModel.indicator_constraints.add_batch(name=pen_con,
-#                                       indvar=self.att_vars,
-#                                       complemented=[1 for a in self.att_vars],
-#                                       lin_expr=pen_expr,
-#                                       sense=["L" for a in self.att_vars],
-#                                       rhs=[0.0 for a in self.att_vars])
         for i in range(len(pen_con)):
             self.DualModel.indicator_constraints.add(name=pen_con[i],
                                                      indvar=self.att_vars[i],
