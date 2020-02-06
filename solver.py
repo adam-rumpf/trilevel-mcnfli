@@ -286,18 +286,3 @@ class TrialSolver:
 
         # Return solution
         return (obj, status)
-
-###############################################################################
-### For testing (delete later)
-
-if __name__ == "__main__":
-    TestSolver = TrialSolver("problems/smallnet.min")
-
-    #print(TestSolver.solve_milp_cutting_plane())
-    #print(TestSolver.solve_lp_cutting_plane())
-    #print(TestSolver.last_defense)
-    #print(TestSolver.solve_milp_defend(TestSolver.last_defense))
-    #print(TestSolver.solve_milp_defend([False
-    #                                    for a in TestSolver.Net.def_arcs]))
-    #print(TestSolver.solve_milp_initial())
-    print(TestSolver.solve_lp_duality())

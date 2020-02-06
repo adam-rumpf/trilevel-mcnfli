@@ -151,13 +151,6 @@ class LLCuttingPlane:
                                                rhs=[self.Net.att_limit])
 
         # Add penalty variable indicator constraints to Cplex object
-        ###
-#        self.UpperModel.indicator_constraints.add_batch(name=pen_con,
-#                                       indvar=self.att_vars,
-#                                       complemented=[1 for a in self.att_vars],
-#                                       lin_expr=pen_expr,
-#                                       sense=["L" for a in self.att_vars],
-#                                       rhs=[0.0 for a in self.att_vars])
         for i in range(len(pen_con)):
             self.UpperModel.indicator_constraints.add(name=pen_con[i],
                                                       indvar=self.att_vars[i],
@@ -328,13 +321,6 @@ class LLCuttingPlane:
             child_expr = [[[self.flow_vars[a.id]], [1]] for a in children]
 
             # Add interdependency indicator constraints to Cplex object
-            ###
-#            self.LowerModel.indicator_constraints.add_batch(name=child_con,
-#                                             indvar=slack_vars,
-#                                             complemented=[0 for a in parents],
-#                                             lin_expr=child_expr,
-#                                             sense=["L" for a in parents],
-#                                             rhs=[0.0 for a in children])
             for i in range(len(child_con)):
                 self.LowerModel.indicator_constraints.add(name=child_con[i],
                                                         indvar=slack_vars[i],
@@ -480,7 +466,7 @@ class LLCuttingPlane:
             (obj_lb, nonzero, feasible) = self.lower_solve(destroy=destroy,
                                                    cplex_epsilon=cplex_epsilon)
 
-            ### Include the potential to break here if LL is infeasible.
+            # Break if lower level is infeasible
             if feasible == False:
                 print("Response problem infeasible.")
                 obj_ub = self.big_m
@@ -556,13 +542,6 @@ class LLCuttingPlane:
 
         # Get the objective value
         obj = self.UpperModel.solution.get_objective_value()
-
-        # Set unbounded objective value to infinity (CPLEX returns an objective
-        # of 0.0 for unbounded primal problems)
-        ###
-#        if ((obj == 0.0) and
-#            (self.UpperModel.solution.is_primal_feasible() == True)):
-#            obj = cplex.infinity
 
         # Get the solution vector
         destroy = [False for a in self.Net.att_arcs]
@@ -683,30 +662,3 @@ class LLCuttingPlane:
 
         self.LowerModel.end()
         self.UpperModel.end()
-
-###############################################################################
-### For testing (delete later)
-
-if __name__ == "__main__":
-    TestNet = net.Network("../../../problems/smallnet.min")
-    TestSolver = LLCuttingPlane(TestNet, 1)
-    PrintSolver = LLCuttingPlane(TestNet, 2)
-    #print(TestSolver.lower_solve())
-    #print(TestSolver.lower_solve(destroy=[True, False, True, True, False,
-    #                                       False, True, False, False]))
-    #print(TestSolver._upper_solve(defend=[False, True, False, False, True,
-    #                                      False, True]))
-    #print(TestSolver.UpperModel.solution.is_primal_feasible())
-
-    print(TestSolver.solve([False, False, False, False, True, False, False],
-                           cutoff=20))
-    print(TestSolver.UpperModel.solution.get_values())
-    #print(TestSolver.UpperModel.get_problem_type())
-    #print(TestSolver.UpperModel.solution.MIP.get_best_objective())
-
-    TestSolver.LowerModel.write("ll_program.lp")
-    PrintSolver.LowerModel.write("ll_lp_program.lp")
-    TestSolver.UpperModel.write("ul_program.lp")
-
-    TestSolver.end()
-    PrintSolver.end()
