@@ -469,8 +469,8 @@ class LLCuttingPlane:
             # Break if lower level is infeasible
             if feasible == False:
                 print("Response problem infeasible.")
-                obj_ub = self.big_m
-                obj_lb = self.big_m
+                obj_ub = cplex.infinity
+                obj_lb = cplex.infinity
                 status = 1
                 break
 

@@ -101,7 +101,6 @@ def single_trial(input_file, output_directory, overwrite=False,
         order = [0, 1] + order + [5]
     else:
         order = trials
-
     # Initialize LP defensive decisions
     lp_sol = []
 
@@ -275,7 +274,7 @@ def single_trial(input_file, output_directory, overwrite=False,
 def trial_list(input_list, output_directory, overwrite=False,
                upper_cutoff=100, lower_cutoff=100, upper_gap=0.01,
                lower_gap=0.01, cplex_epsilon=0.001, big_m=1.0e16,
-               small_m=1.0e10):
+               small_m=1.0e10, trials=None, pause=False):
     """Processes a list of trial instances.
 
     Runs a collection of tests on a list of trial instances and writes the
@@ -309,22 +308,33 @@ def trial_list(input_list, output_directory, overwrite=False,
             still be larger than any reasonable values produced by the solution
             algorithm, but significantly smaller than big_m. Defaults to
             1.0e10.
+        trials -- List of trial IDs to override the default trial set. Defaults
+            to None, in which case the default set is used. The following IDs
+            are available:
+                0: Preliminary MILP solve
+                1: Defenseless MILP solve
+                2: Trilevel solve with MILP via cutting plane
+                3: Trilevel solve with LP via cutting plane
+                4: Trilevel solve with LP via duality
+                5: MILP solve with LP defense (requires trial 3 first)
+        pause -- Select whether to pause for keyboard input between each trial.
+            Defaults to False.
     """
 
     over = overwrite # initial overwrite setting
 
     # Read input file into a list
-    trials = []
+    tl = []
     with open(input_list, 'r') as f:
         for line in f:
-            trials.append(line[:-1])
+            tl.append(line[:-1])
 
     # Process each trial on the list
-    for i in range(len(trials)):
-        single_trial(trials[i], output_directory, overwrite=over,
+    for i in range(len(tl)):
+        single_trial(tl[i], output_directory, overwrite=over,
                      upper_cutoff=upper_cutoff, upper_gap=upper_gap,
                      lower_cutoff=lower_cutoff, lower_gap=lower_gap,
-                     big_m=big_m, small_m=small_m)
+                     big_m=big_m, small_m=small_m, trials=trials, pause=pause)
         over = False # stop overwriting after first trial
 
     print("\nAll trials processed!")
@@ -416,12 +426,8 @@ def refresh_files(directory):
 ###############################################################################
 ### For testing (delete later)
 
-#single_trial("problems/smallnet.min", "results/", overwrite=True)
-#refresh_files("results/")
-#trial_list("trial_list.txt", "results/", overwrite=True)
-
-testfiles = ["problems/smallnet_node.min"]#["problems/smalltest.min", "problems/bigtest.min"]
-for tf in testfiles:
-    print("\n"+"#"*60+"\nTesting "+tf+"\n"+"#"*60+"\n")
-    single_trial(tf, "results/", overwrite=True, upper_cutoff=50,
-                 lower_cutoff=50, upper_gap=0.1, lower_gap=0.1, pause=True)
+trial_list("problems/trial_list.txt", "results/", overwrite=True,
+           upper_cutoff=50, lower_cutoff=30, upper_gap=1, lower_gap=1)
+#single_trial("problems/smalltest.min", "results/", overwrite=True,
+#             upper_cutoff=50, lower_cutoff=100, upper_gap=100, lower_gap=100,
+#             pause=False, trials=[0])

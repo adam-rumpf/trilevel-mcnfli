@@ -231,6 +231,9 @@ class UpperLevel:
         lower_time += time.time() - timer
         print("Attack: "+str([int(d) for d in destroy]))###
 
+        # Bound returned objective by a large constant
+        obj_ub = min(obj_ub, 0.001*self.big_m)
+
         ###
         print("\n"+"="*60)
         print("rho2 = "+str(obj_ub))
@@ -277,6 +280,9 @@ class UpperLevel:
             if status == 2:
                 exit_status = 2
                 break
+
+            # Bound returned objective by a large constant
+            obj_ub = min(obj_ub, 0.001*self.big_m)
 
             ###
             print("\n"+"="*60)
