@@ -162,8 +162,6 @@ class LLCuttingPlane:
         # Keep track of the number of side constraints generated so far
         self.side_constraints = 0
 
-        self.UpperModel.write("UpperModel.lp")###
-
     #--------------------------------------------------------------------------
     def _lower_cplex_setup(self, mode):
         """Initializes Cplex object for interdependent min-cost flow problem.
@@ -365,8 +363,6 @@ class LLCuttingPlane:
                                                    senses=flow_int_sense,
                                                    rhs=flow_int_rhs)
 
-        self.LowerModel.write("LowerModel.lp")###
-
     #--------------------------------------------------------------------------
     def solve(self, defend, cutoff=100, gap=0.01, cplex_epsilon=0.001):
         """Bilevel subproblem solution method.
@@ -415,30 +411,28 @@ class LLCuttingPlane:
         status = 0 # exit code
 
         ###
-        print("\nInitializing P2-3' cutting plane search.\n")
-        print("-"*20+" Iteration 0 "+"-"*20)
+        print("P2-3>\t\tIteration "+str(iteration-1))
 
         # Solve the upper-level problem once for the given defense vector
         (obj_ub, destroy) = self._upper_solve(defend=defend,
                                               cplex_epsilon=cplex_epsilon)
 
         ###
-        print("rho2 = "+str(obj_ub))
+        print("  P2>\t\t\tobj = "+str(obj_ub))
 
         # Find the lower-level response for the given attack vector
         (obj_lb, nonzero, feasible) = self.lower_solve(destroy=destroy,
                                                    cplex_epsilon=cplex_epsilon)
 
         ###
-        print("rho3 = "+str(obj_lb))
+        print("  P3>\t\t\t\tobj = "+str(obj_lb))
 
         obj_gap = abs(obj_ub - obj_lb) # current optimality gap
 
         ###
-        print("Optimality gap = "+str(obj_gap))
+        print("P2-3>\t\t\tgap = "+str(obj_gap))
 
         if feasible == False:
-            print("Response problem infeasible.")
             obj_ub = self.big_m
             obj_lb = self.big_m
             status = 1
@@ -451,7 +445,7 @@ class LLCuttingPlane:
             iteration += 1
 
             ###
-            print("-"*20+" Iteration "+str(iteration-1)+" "+"-"*20)
+            print("P2-3>\t\tIteration "+str(iteration-1))
 
             # Add a constraint based on the nonzero flow vector
             self._upper_add_constraint(obj_lb, nonzero)
@@ -460,7 +454,7 @@ class LLCuttingPlane:
             (obj_ub, destroy) = self._upper_solve(cplex_epsilon=cplex_epsilon)
 
             ###
-            print("rho2 = "+str(obj_ub))
+            print("  P2>\t\t\tobj = "+str(obj_ub))
 
             # Re-solve the lower-level response
             (obj_lb, nonzero, feasible) = self.lower_solve(destroy=destroy,
@@ -468,20 +462,19 @@ class LLCuttingPlane:
 
             # Break if lower level is infeasible
             if feasible == False:
-                print("Response problem infeasible.")
                 obj_ub = cplex.infinity
                 obj_lb = cplex.infinity
                 status = 1
                 break
 
             ###
-            print("rho3 = "+str(obj_lb))
+            print("  P3>\t\t\t\tobj = "+str(obj_lb))
 
             # Recalculate the optimality gap
             obj_gap = abs(obj_ub - obj_lb)
 
             ###
-            print("Optimality gap = "+str(obj_gap))
+            print("P2-3>\t\t\tgap = "+str(obj_gap))
 
             if (iteration >= cutoff) and (obj_gap > gap):
                 # If ending due to iteration cutoff without reaching optimality
@@ -529,16 +522,6 @@ class LLCuttingPlane:
 
         # Solve the MILP
         self.UpperModel.solve()
-
-        ###
-        if self.UpperModel.solution.is_primal_feasible() == True:
-            print("Upper-level primal feasible.")
-        else:
-            print("Upper-level primal infeasible.")
-        if self.UpperModel.solution.is_dual_feasible() == True:
-            print("Upper-level dual feasible.")
-        else:
-            print("Upper-level dual infeasible.")
 
         # Get the objective value
         obj = self.UpperModel.solution.get_objective_value()
@@ -590,16 +573,6 @@ class LLCuttingPlane:
         # Solve the LP or MILP
         self.LowerModel.solve()
 
-        ###
-        if self.LowerModel.solution.is_primal_feasible() == True:
-            print("Lower-level primal feasible.")
-        else:
-            print("Lower-level primal infeasible.")
-        if self.LowerModel.solution.is_dual_feasible() == True:
-            print("Lower-level dual feasible.")
-        else:
-            print("Lower-level dual infeasible.")
-
         # Set up containers for objective, nonzero flow indicator, and
         # feasibility status
         obj = cplex.infinity
@@ -613,8 +586,6 @@ class LLCuttingPlane:
             for i in range(len(self.Net.arcs)):
                 if self.LowerModel.solution.get_values(self.flow_vars[i]) > 0:
                     nonzero[i] = True
-
-        self.LowerModel.write("LowerModel.lp")###
 
         return (obj, nonzero, status)
 
@@ -650,8 +621,6 @@ class LLCuttingPlane:
                 lin_expr=[[new_con_vars, new_con_coef]],
                 senses=["L"], rhs=[objective])
         self.side_constraints += 1
-
-        self.UpperModel.write("UpperModel.lp")###
 
     #--------------------------------------------------------------------------
     def end(self):

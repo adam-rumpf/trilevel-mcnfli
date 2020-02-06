@@ -163,8 +163,6 @@ class UpperLevel:
         # Keep track of the number of side constraints generated so far
         self.side_constraints = 0
 
-        self.TopModel.write("TopModel.lp")###
-
     #--------------------------------------------------------------------------
     def solve(self, cutoff=100, lower_cutoff=100, gap=0.01, lower_gap=0.01,
               cplex_epsilon=0.001):
@@ -212,36 +210,32 @@ class UpperLevel:
         exit_status = 0
 
         ###
-        print("\nInitializing P1-3' cutting plane search.\n")
-        print("="*30+" Iteration 0 "+"="*30)
+        print("P1-3>\tIteration "+str(iteration-1))
 
         # Solve the upper-level problem for an initial solution
         timer = time.time()
         (obj_lb, defend) = self._upper_solve(cplex_epsilon=cplex_epsilon)
-        print("Defend: "+str([int(d) for d in defend]))###
         upper_time += time.time() - timer
 
         ###
-        print("\nrho1 = "+str(obj_lb))
+        print("  P1>\tobj = "+str(obj_lb))
 
         # Find the lower-level response for the given attack vector
         timer = time.time()
         (obj_ub, destroy, status, lower_iterations) = self.lower_solve(defend,
                cutoff=lower_cutoff, gap=lower_gap, cplex_epsilon=cplex_epsilon)
         lower_time += time.time() - timer
-        print("Attack: "+str([int(d) for d in destroy]))###
 
         # Bound returned objective by a large constant
         obj_ub = min(obj_ub, 0.001*self.big_m)
 
         ###
-        print("\n"+"="*60)
-        print("rho2 = "+str(obj_ub))
+        print("  P2>\t\tobj = "+str(obj_ub))
 
         obj_gap = abs(obj_ub - obj_lb) # current optimality gap
 
         ###
-        print("Optimality gap = "+str(obj_gap))
+        print("P1-3>\tgap = "+str(obj_gap))
 
         #----------------------------------------------------------------------
         # Main cutting plane loop begin
@@ -251,7 +245,7 @@ class UpperLevel:
             iteration += 1
 
             ###
-            print("="*30+" Iteration "+str(iteration-1)+" "+"="*30)
+            print("P1-3>\tIteration "+str(iteration-1))
 
             # Add a constraint based on the nonzero flow vector
             self._add_constraint(obj_ub, destroy)
@@ -262,11 +256,7 @@ class UpperLevel:
             upper_time += time.time() - timer
 
             ###
-            print("Defend: "+str([int(d) for d in defend]))
-            ###print(defend)
-
-            ###
-            print("rho1 = "+str(obj_lb))
+            print("  P1>\tobj = "+str(obj_lb))
 
             # Re-solve the lower-level response
             timer = time.time()
@@ -274,7 +264,6 @@ class UpperLevel:
                cutoff=lower_cutoff, gap=lower_gap, cplex_epsilon=cplex_epsilon)
             lower_time += time.time() - timer
             lower_iterations += li
-            print("Attack: "+str([int(d) for d in destroy]))###
 
             # Break in case of lower-level error
             if status == 2:
@@ -285,14 +274,13 @@ class UpperLevel:
             obj_ub = min(obj_ub, 0.001*self.big_m)
 
             ###
-            print("\n"+"="*60)
-            print("rho2 = "+str(obj_ub))
+            print("  P2>\t\tobj = "+str(obj_ub))
 
             # Recalculate the optimality gap
             obj_gap = abs(obj_ub - obj_lb)
 
             ###
-            print("Optimality gap = "+str(obj_gap))
+            print("P1-3>\tgap = "+str(obj_gap))
 
             if (iteration >= cutoff) and (obj_gap > gap):
                 # If ending due to iteration cutoff without reaching optimality
@@ -331,16 +319,6 @@ class UpperLevel:
 
         # Solve the MILP
         self.TopModel.solve()
-
-        ###
-        if self.TopModel.solution.is_primal_feasible() == True:
-            print("Top-level primal feasible.")
-        else:
-            print("Top-level primal infeasible.")
-        if self.TopModel.solution.is_dual_feasible() == True:
-            print("Top-level dual feasible.")
-        else:
-            print("Top-level dual infeasible.")
 
         # Get the objective value
         obj = self.TopModel.solution.get_objective_value()
@@ -423,8 +401,6 @@ class UpperLevel:
                 senses=["G"], rhs=[obj])
         self.side_constraints += 1
 
-        self.TopModel.write("TopModel.lp")###
-
     #--------------------------------------------------------------------------
     def initial_solve(self):
         """Solves the initial lower-level network flows problem.
@@ -457,9 +433,6 @@ class UpperLevel:
         status = 0
         if feas == False:
             status = 1
-
-        ###
-        print("Obtained an initial objective value of "+str(obj))
 
         return (obj, status)
 

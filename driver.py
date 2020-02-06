@@ -90,6 +90,10 @@ def single_trial(input_file, output_directory, overwrite=False,
             Defaults to False.
     """
 
+    print("\n"+"#"*60)
+    print(input_file)
+    print("#"*60+"\n")
+
     # Initialize summary line contents
     results = [0 for i in range(21)]
     results[0] = input_file
@@ -112,10 +116,14 @@ def single_trial(input_file, output_directory, overwrite=False,
 
         # Pause for keyboard input
         if pause == True:
-            input("Press [Enter] to continue...")
+            input("\nPress [Enter] to continue...")
 
         # Preliminary MILP solve (always first)
         if i == 0:
+
+            print("\n"+"-"*50)
+            print("Preliminary MILP solve ("+input_file+")")
+            print("-"*50+"\n")
 
             # Initialize temporary solver
             Model = sl.TrialSolver(input_file)
@@ -133,16 +141,17 @@ def single_trial(input_file, output_directory, overwrite=False,
 
             # Break if the model is infeasible
             if feas != 0:
-                print("\nInitial MILP infeasible.")###
                 break
-            print("\nInitial MILP feasible.")###
 
             # Record objective
             results[7] = obj
-            print("Initial objective = "+str(obj))###
 
         # Defenseless MILP solve (always second)
         elif i == 1:
+
+            print("\n"+"-"*50)
+            print("Defenseless MILP solve ("+input_file+")")
+            print("-"*50+"\n")
 
             # Initialize temporary solver
             Model = sl.TrialSolver(input_file)
@@ -153,11 +162,13 @@ def single_trial(input_file, output_directory, overwrite=False,
 
             # Record objective
             results[8] = obj
-            ###
-            print("\nDefenseless objective = "+str(obj))###
 
         # MILP cutting plane solve
         elif i == 2:
+
+            print("\n"+"-"*50)
+            print("MILP cutting plane solve ("+input_file+")")
+            print("-"*50+"\n")
 
             # Initialize temporary solver
             Model = sl.TrialSolver(input_file)
@@ -182,12 +193,13 @@ def single_trial(input_file, output_directory, overwrite=False,
                     sol[i] = 0
             _write_sol(output_directory+"milp_cp_sol.txt", input_file, sol,
                        overwrite=overwrite)
-            ###
-            print("\nMILP cutting plane defense = "+str([int(d) for d in sol]))
-            print("\nMILP cutting plane objective = "+str(obj))
 
         # LP cutting plane solve
         elif i == 3:
+
+            print("\n"+"-"*50)
+            print("LP cutting plane solve ("+input_file+")")
+            print("-"*50+"\n")
 
             # Initialize temporary solver
             Model = sl.TrialSolver(input_file)
@@ -213,12 +225,13 @@ def single_trial(input_file, output_directory, overwrite=False,
                     sol[i] = 0
             _write_sol(output_directory+"lp_cp_sol.txt", input_file, sol,
                        overwrite=overwrite)
-            ###
-            print("\nLP cutting plane defense = "+str([int(d) for d in sol]))
-            print("\nLP cutting plane objective = "+str(obj))
 
         # LP duality solve
         elif i == 4:
+
+            print("\n"+"-"*50)
+            print("LP duality solve ("+input_file+")")
+            print("-"*50+"\n")
 
             # Initialize temporary solver
             Model = sl.TrialSolver(input_file)
@@ -241,16 +254,16 @@ def single_trial(input_file, output_directory, overwrite=False,
                     sol[i] = 0
             _write_sol(output_directory+"lp_dual_sol.txt", input_file, sol,
                        overwrite=overwrite)
-            ###
-            print("\nLP duality defense = "+str([int(d) for d in sol]))
-            print("\nLP duality objective = "+str(obj))
 
         # Relaxed solution optimality gap solve (always last)
         elif i == 5:
 
+            print("\n"+"-"*50)
+            print("Relaxed solution optimality gap ("+input_file+")")
+            print("-"*50+"\n")
+
             # Skip if the LP solution has not been defined
             if len(lp_sol) == 0:
-                print("\nNo LP solution logged. Skipping relaxed solve.")
                 continue
 
             # Initialize temporary solver
@@ -261,8 +274,6 @@ def single_trial(input_file, output_directory, overwrite=False,
 
             # Record objective
             results[20] = obj
-            ###
-            print("\nRelaxed defense objective = "+str(obj))
 
     # Write summary file
     line = str(results[0])
@@ -422,12 +433,3 @@ def refresh_files(directory):
         pass
     with open(directory+"lp_dual_sol.txt", 'w'):
         pass
-
-###############################################################################
-### For testing (delete later)
-
-trial_list("problems/trial_list.txt", "results/", overwrite=True,
-           upper_cutoff=50, lower_cutoff=30, upper_gap=1, lower_gap=1)
-#single_trial("problems/smalltest.min", "results/", overwrite=True,
-#             upper_cutoff=50, lower_cutoff=100, upper_gap=100, lower_gap=100,
-#             pause=False, trials=[0])

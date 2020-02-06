@@ -290,8 +290,6 @@ class LLDuality:
                                           senses="G"*len(self.Net.arcs),
                                           rhs=[-a.cost for a in self.Net.arcs])
 
-        self.DualModel.write("DualModel.lp")###
-
     #--------------------------------------------------------------------------
     def solve(self, defend, cutoff=100, gap=0.01, cplex_epsilon=0.001):
         """Bilevel subproblem solution method.
@@ -337,20 +335,8 @@ class LLDuality:
             self.DualModel.linear_constraints.set_rhs([(self.att_con[i],
                            new_rhs[i]) for i in range(len(self.Net.def_arcs))])
 
-        self.DualModel.write("DualModel.lp")###
-
         # Solve the MILP
         self.DualModel.solve()
-
-        ###
-        if self.DualModel.solution.is_primal_feasible() == True:
-            print("Lower-level primal feasible.")
-        else:
-            print("Lower-level primal infeasible.")
-        if self.DualModel.solution.is_dual_feasible() == True:
-            print("Lower-level dual feasible.")
-        else:
-            print("Lower-level dual infeasible.")
 
         # Get objective value and solution vector
         if self.DualModel.solution.is_dual_feasible() == True:
