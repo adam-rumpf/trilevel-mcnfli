@@ -249,6 +249,11 @@ def single_trial(input_file, output_directory, overwrite=False,
         # Relaxed solution optimality gap solve (always last)
         elif i == 5:
 
+            # Skip if the LP solution has not been defined
+            if len(lp_sol) == 0:
+                print("\nNo LP solution logged. Skipping relaxed solve.")
+                continue
+
             # Initialize temporary solver
             Model = sl.TrialSolver(input_file)
 
@@ -415,8 +420,8 @@ def refresh_files(directory):
 #refresh_files("results/")
 #trial_list("trial_list.txt", "results/", overwrite=True)
 
-testfiles = ["problems/smallnet.min"]#["problems/smalltest.min", "problems/bigtest.min"]
+testfiles = ["problems/smallnet_node.min"]#["problems/smalltest.min", "problems/bigtest.min"]
 for tf in testfiles:
     print("\n"+"#"*60+"\nTesting "+tf+"\n"+"#"*60+"\n")
     single_trial(tf, "results/", overwrite=True, upper_cutoff=50,
-                 lower_cutoff=50, upper_gap=0.1, lower_gap=0.1, pause=False)
+                 lower_cutoff=50, upper_gap=0.1, lower_gap=0.1, pause=True)
