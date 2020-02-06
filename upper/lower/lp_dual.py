@@ -172,9 +172,13 @@ class LLDuality:
         # Determine endpoint node dual variables depening on model type
         if self.Net.parent_type == 1:
             # For arc parents, the dual variables of both endpoints appear
-            arc_con_vars = [[node_vars[a.tail.id], node_vars[a.head.id]]
-                            for a in self.Net.arcs]
-            arc_con_coef = [[-1.0, 1.0] for a in self.Net.arcs]
+
+            # Process all arcs to add tail and head dual variables
+            for a in self.Net.arcs:
+                arc_con_vars[a.id].append(node_vars[a.tail.id])
+                arc_con_coef[a.id].append(-1.0)
+                arc_con_vars[a.id].append(node_vars[a.head.id])
+                arc_con_coef[a.id].append(1.0)
         else:
             # For node parents, the dual variables of the endpoints depend on
             # whether each endpoint is a source node and whether it is defined.
