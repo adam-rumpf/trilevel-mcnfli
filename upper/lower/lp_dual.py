@@ -348,17 +348,6 @@ class LLDuality:
         else:
             print("Lower-level dual infeasible.")
 
-        # Get the objective value
-#        obj = self.DualModel.solution.get_objective_value()
-
-        # Set unbounded objective value to infinity (CPLEX returns an objective
-        # of 0.0 for unbounded problems)
-        ###
-#        if ((obj == 0.0 or obj >= 0.1*self.big_m) and
-#            (self.DualModel.solution.is_primal_feasible() == True)):
-#            obj = cplex.infinity
-#            status = 1
-
         # Get objective value and solution vector
         if self.DualModel.solution.is_dual_feasible() == True:
             # If dual feasible then the primal is bounded and we can return the
@@ -392,22 +381,3 @@ class LLDuality:
         """
 
         self.DualModel.end()
-
-###############################################################################
-### For testing (delete later)
-
-if __name__ == "__main__":
-    TestNet = net.Network("../../../problems/smallnet.min")
-    TestSolver = LLDuality(TestNet, big_m=1.0e10)
-
-    print(TestSolver.solve([False, True, True, False, True, False, False]))
-    #print(TestSolver.solve([False, False, False, False, False, False, False]))
-
-    #nms = TestSolver.DualModel.variables.get_names()
-    #val = TestSolver.DualModel.solution.get_values()
-    #for i in range(len(nms)):
-    #    print(str(nms[i])+" = "+str(val[i]))
-
-    TestSolver.DualModel.write("dual_program.lp")
-
-    TestSolver.end()

@@ -152,13 +152,6 @@ class UpperLevel:
                                              rhs=[self.Net.def_limit])
 
         # Add penalty variable indicator constraints to Cplex object
-        ###
-#        self.TopModel.indicator_constraints.add_batch(name=pen_con,
-#                                       indvar=self.def_vars,
-#                                       complemented=[1 for a in self.def_vars],
-#                                       lin_expr=pen_expr,
-#                                       sense=["L" for a in self.def_vars],
-#                                       rhs=[0.0 for a in self.def_vars])
         for i in range(len(pen_con)):
             self.TopModel.indicator_constraints.add(name=pen_con[i],
                                                     indvar=self.def_vars[i],
@@ -346,13 +339,6 @@ class UpperLevel:
         # Get the objective value
         obj = self.TopModel.solution.get_objective_value()
 
-        # Set unbounded objective value to infinity (CPLEX returns an objective
-        # of 0.0 for unbounded primal problems)
-        ###
-#        if ((obj == 0.0) and
-#            (self.TopModel.solution.is_primal_feasible() == True)):
-#            obj = -cplex.infinity
-
         # Get the solution vector
         defend = [False for a in self.Net.def_arcs]
         for i in range(len(self.Net.def_arcs)):
@@ -390,8 +376,6 @@ class UpperLevel:
             iterations -- Number of iterations of the lower-level algorithm's
                 cutting plane loop (0 if not applicable).
         """
-
-        input("Press [Enter] to continue...")###
 
         # Call the appropriate lower-level solver and return its results
         return self.LowerLevel.solve(defend, cutoff=cutoff, gap=gap,
@@ -483,18 +467,3 @@ class UpperLevel:
 
         self.TopModel.end()
         self.LowerLevel.end()
-
-###############################################################################
-### For testing (delete later)
-
-if __name__ == "__main__":
-    TestNet = net.Network("../../problems/smallnet.min")
-    TestSolver = UpperLevel(TestNet, 3)
-
-    print(TestSolver.solve(cutoff=20, lower_cutoff=10))
-    #print(TestSolver.lower_solve([False, False, False, False, True, False,
-    #                              False], cutoff=20))
-
-    TestSolver.TopModel.write("top_program.lp")
-
-    TestSolver.end()
