@@ -63,6 +63,7 @@ class UpperLevel:
 
         self.Net = net_in # set reference to network object
         self.big_m = big_m # penalty value for use in relaxed master problem
+        self.med_m = 0.001*big_m # penalty value slightly less than big-M
         self.method = method # store method ID for reference
 
         # Initialize the chosen type of lower-level solver
@@ -144,11 +145,10 @@ class UpperLevel:
         # Define penalty variable constraints to limit value when activated
         pen_expr = [[[v], [1]] for v in self.pen_vars]
 
-        # Add defense constraints to Cplex object, using equality to reduce the
-        # number of feasible solutions
+        # Add defense constraints to Cplex object
         self.TopModel.linear_constraints.add(names=["db"],
                                              lin_expr=def_lim_expr,
-                                             senses=["E"],
+                                             senses=["L"],
                                              rhs=[self.Net.def_limit])
 
         # Add penalty variable indicator constraints to Cplex object
@@ -197,6 +197,7 @@ class UpperLevel:
             exit_status -- Numerical code to describe the results of the
                 solution process, including the following:
                     0: Successful exit with finite objective value.
+					1: Exit due to infeasible defense problem.
                     2: Exit due to error.
                     3: Exit due to iteration cutoff
         """
@@ -227,7 +228,7 @@ class UpperLevel:
         lower_time += time.time() - timer
 
         # Bound returned objective by a large constant
-        obj_ub = min(obj_ub, 0.001*self.big_m)
+        obj_ub = min(obj_ub, self.med_m)
 
         ###
         print("  P2>\t\tobj = "+str(obj_ub))
@@ -254,6 +255,13 @@ class UpperLevel:
             timer = time.time()
             (obj_lb, defend) = self._upper_solve(cplex_epsilon=cplex_epsilon)
             upper_time += time.time() - timer
+			
+            # Break if upper level cannot improve on the infeasibility bound
+            if (obj_lb >= self.med_m) or (obj_lb >= obj_ub):
+                obj_ub = cplex.infinity
+                obj_lb = cplex.infinity
+                exit_status = 1
+                break
 
             ###
             print("  P1>\tobj = "+str(obj_lb))
@@ -271,7 +279,7 @@ class UpperLevel:
                 break
 
             # Bound returned objective by a large constant
-            obj_ub = min(obj_ub, 0.001*self.big_m)
+            obj_ub = min(obj_ub, self.med_m)
 
             ###
             print("  P2>\t\tobj = "+str(obj_ub))
@@ -392,7 +400,7 @@ class UpperLevel:
                 new_con_coef.append(1)
 
         # Set infinite objectives to big-M
-        obj = min(objective, self.big_m)
+        obj = min(objective, self.med_m)
 
         # Add constraints to Cplex object
         self.TopModel.linear_constraints.add(names=[

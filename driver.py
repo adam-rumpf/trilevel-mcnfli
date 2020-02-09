@@ -209,7 +209,7 @@ def single_trial(input_file, output_directory, overwrite=False,
                     upper_cutoff=upper_cutoff, lower_cutoff=lower_cutoff,
                     upper_gap=upper_gap, lower_gap=lower_gap, big_m=big_m,
                     small_m=small_m)
-            lp_sol = sol # save solution for comparison with MILP
+            lp_sol = sol[:] # save solution for comparison with MILP
 
             # Record trial statistics
             results[13] = times[0]
@@ -270,7 +270,9 @@ def single_trial(input_file, output_directory, overwrite=False,
             Model = sl.TrialSolver(input_file)
 
             # Solve bilevel model with LP defense
-            (obj, _, _, _) = Model.solve_milp_defend(lp_sol, big_m=small_m)
+            (obj, _, _, _) = Model.solve_milp_defend(lp_sol, big_m=small_m,
+			                                         cutoff=lower_cutoff,
+                                                     gap=lower_gap)
 
             # Record objective
             results[20] = obj
