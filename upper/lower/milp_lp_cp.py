@@ -343,6 +343,10 @@ class LLCuttingPlane:
             flow_int_expr = [[[], []] for i in self.Net.int]
             i = 0
             for intd in self.Net.int:
+                
+                if intd[0].bound <= 0:
+                    i += 1
+                    continue
 
                 # Get parent/child arc names
                 var_pair = [self.flow_vars[intd[0].id],

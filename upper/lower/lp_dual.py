@@ -232,6 +232,9 @@ class LLDuality:
 
             ap = self.Net.int[i][0] # parent arc
             ac = self.Net.int[i][1] # child arc
+            
+            if ap.bound <= 0:
+                continue
 
             # Parent arc constraint
             arc_con_vars[ap.id].append(int_vars[i])
