@@ -1,4 +1,5 @@
+*.lp
 *.min
 *.pyc
 *.txt
-*.lp
+!requirements.txt

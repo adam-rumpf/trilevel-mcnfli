@@ -1,0 +1,24 @@
+# This file may be used to create an environment using:
+# $ conda create --name <env> --file <this file>
+# platform: win-64
+@EXPLICIT
+https://repo.anaconda.com/pkgs/main/win-64/blas-1.0-mkl.conda
+https://repo.anaconda.com/pkgs/main/win-64/icc_rt-2019.0.0-h0cc432a_1.conda
+https://repo.anaconda.com/pkgs/main/win-64/intel-openmp-2019.4-245.conda
+https://repo.anaconda.com/pkgs/main/win-64/vs2015_runtime-14.16.27012-hf0eaf9b_3.conda
+https://repo.anaconda.com/pkgs/main/win-64/mkl-2018.0.3-1.conda
+https://repo.anaconda.com/pkgs/main/win-64/vc-14.1-h0510ff6_4.conda
+https://repo.anaconda.com/pkgs/main/win-64/python-3.5.6-he025d50_0.conda
+https://repo.anaconda.com/pkgs/main/win-64/tbb-2020.3-h74a9793_0.conda
+https://repo.anaconda.com/pkgs/main/noarch/certifi-2020.6.20-pyhd3eb1b0_3.conda
+https://conda.anaconda.org/ibmdecisionoptimization/win-64/cplex-12.7-py35_0.tar.bz2
+https://repo.anaconda.com/pkgs/main/win-64/tbb4py-2018.0.5-py35he980bc4_0.conda
+https://repo.anaconda.com/pkgs/main/noarch/wheel-0.35.1-py_0.conda
+https://repo.anaconda.com/pkgs/main/win-64/wincertstore-0.2-py35hfebbdb8_0.conda
+https://repo.anaconda.com/pkgs/main/win-64/numpy-base-1.15.2-py35h8128ebf_0.conda
+https://repo.anaconda.com/pkgs/main/win-64/setuptools-40.2.0-py35_0.conda
+https://repo.anaconda.com/pkgs/main/win-64/pip-10.0.1-py35_0.conda
+https://repo.anaconda.com/pkgs/main/win-64/mkl_fft-1.0.6-py35hdbbee80_0.conda
+https://repo.anaconda.com/pkgs/main/win-64/mkl_random-1.0.1-py35h77b88f5_1.conda
+https://repo.anaconda.com/pkgs/main/win-64/numpy-1.15.2-py35ha559c80_0.conda
+https://repo.anaconda.com/pkgs/main/win-64/scipy-1.1.0-py35h4f6bf74_1.conda
